@@ -235,7 +235,7 @@ function ExplorerRow({
         aria-label={`Delete ${object.name}`}
         onClick={() => onDelete(object.id)}
       >
-        x
+        Delete
       </button>
 
       <div className="scene-row-main" onClick={() => onSelect(object.id)}>
@@ -274,7 +274,7 @@ function ExplorerRow({
         aria-label={`Duplicate ${object.name}`}
         onClick={() => onDuplicate(object.id)}
       >
-        dup
+        Duplicate
       </button>
     </div>
   )
