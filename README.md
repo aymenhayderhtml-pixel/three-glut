@@ -1,5 +1,6 @@
 # Three GLUT
 
+
 A lightweight scene editor built with React, TypeScript, Vite, and Three.js.
 
 ## Features
@@ -42,4 +43,3 @@ npm run lint
 
 - `dist/` and `node_modules/` are not committed to GitHub.
 - The editor is designed to work on desktop and smaller screens.
-
