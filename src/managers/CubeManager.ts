@@ -3,6 +3,7 @@ import * as THREE from 'three'
 export type CubeData = {
   id: string
   position: [number, number, number]
+  rotation: [number, number, number] // x, y, z rotation in degrees
   color: [number, number, number]
   size: number
 }
@@ -153,6 +154,12 @@ export class CubeManager {
 
     this.dummy.position.set(cube.position[0], cube.position[1], cube.position[2])
     this.dummy.scale.set(cube.size, cube.size, cube.size)
+
+    // Apply rotation (convert degrees to radians)
+    this.dummy.rotation.x = (cube.rotation?.[0] ?? 0) * (Math.PI / 180)
+    this.dummy.rotation.y = (cube.rotation?.[1] ?? 0) * (Math.PI / 180)
+    this.dummy.rotation.z = (cube.rotation?.[2] ?? 0) * (Math.PI / 180)
+
     this.dummy.updateMatrix()
 
     this.mesh.setMatrixAt(instanceId, this.dummy.matrix)

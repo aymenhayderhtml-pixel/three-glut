@@ -616,6 +616,26 @@ function SceneMesh({
       ] as [number, number, number]
     : null
 
+  // Compute clipping planes for holes (beta)
+  const clippingPlanes = useMemo(() => {
+    if (!object.holes || object.holes.length === 0) return undefined
+    const planes: Plane[] = []
+    for (const hole of object.holes) {
+      const normal = new Vector3(
+        hole.axis === 'x' ? 1 : 0,
+        hole.axis === 'y' ? 1 : 0,
+        hole.axis === 'z' ? 1 : 0,
+      )
+      const pos = new Vector3(...hole.position)
+      // Two planes that clip a disc-like region through the object
+      planes.push(new Plane(normal.clone(), -pos.dot(normal) - hole.radius))
+      planes.push(new Plane(normal.clone().negate(), pos.dot(normal) - hole.radius))
+    }
+    return planes.length > 0 ? planes : undefined
+  }, [object.holes])
+
+  const hasHoles = clippingPlanes !== undefined
+
   const startObjectDrag = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation()
     event.nativeEvent.preventDefault()
@@ -745,9 +765,25 @@ function SceneMesh({
             metalness={0.12}
             emissive={selected ? '#ffe4b5' : '#000000'}
             emissiveIntensity={selected ? 0.28 : 0}
+            clippingPlanes={clippingPlanes}
+            clipShadows={hasHoles}
           />
         </mesh>
       )}
+
+      {/* Hole indicator rings */}
+      {object.holes && object.holes.map((hole) => {
+        const rot: [number, number, number] =
+          hole.axis === 'x' ? [0, 0, Math.PI / 2] :
+          hole.axis === 'z' ? [Math.PI / 2, 0, 0] :
+          [0, 0, 0]
+        return (
+          <mesh key={hole.id} position={hole.position} rotation={rot}>
+            <torusGeometry args={[hole.radius, 0.02, 8, 32]} />
+            <meshBasicMaterial color="#ff6644" transparent opacity={0.7} />
+          </mesh>
+        )
+      })}
 
       {object.kind === 'sphere' && (
         <mesh>
@@ -819,6 +855,40 @@ function SceneMesh({
         </mesh>
       )}
 
+      {object.kind === 'ground' && (
+        <mesh>
+          <boxGeometry args={[object.width, object.height, object.depth]} />
+          <meshStandardMaterial
+            color={color}
+            roughness={0.85}
+            metalness={0.05}
+            emissive={selected ? '#ffe4b5' : '#000000'}
+            emissiveIntensity={selected ? 0.2 : 0}
+          />
+        </mesh>
+      )}
+
+      {object.kind === 'prism' && (
+        <mesh>
+          <cylinderGeometry
+            args={[
+              object.radius,
+              object.radius,
+              object.height,
+              3,
+              1,
+            ]}
+          />
+          <meshStandardMaterial
+            color={color}
+            roughness={0.45}
+            metalness={0.15}
+            emissive={selected ? '#ffe4b5' : '#000000'}
+            emissiveIntensity={selected ? 0.35 : 0}
+          />
+        </mesh>
+      )}
+
       {selected && object.kind === 'cube' && editMode !== 'object' && (
         <CubeEditOverlay
           object={object}
@@ -861,6 +931,7 @@ export default function Viewport3D({
       camera={{ position: [0, 1.6, 8], fov: 45 }}
       dpr={[1, 1.5]}
       shadows={false}
+      gl={{ localClippingEnabled: true }}
       onPointerMissed={() => {
         onSelect(null)
         onSelectFace(null)

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { useThree } from '@react-three/fiber'
-import { CubeManager, type CubeData } from '../managers/CubeManager'
+import { CubeManager } from '../managers/CubeManager'
 import { useCubeStore } from '../store/cubeStore'
 
 export function VoxelScene() {

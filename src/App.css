@@ -1,128 +1,257 @@
+/* ========================================================================
+   THREE GLUT — Blender-Style Layout & Components
+   ======================================================================== */
+
+/* ─── App Shell: Full-screen Blender layout ─── */
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
   display: grid;
-  gap: 16px;
-  padding: 16px;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOP BAR — Slim Blender-style menu bar
+   ═══════════════════════════════════════════════════════════════════════════ */
 .topbar {
-  position: sticky;
-  top: 12px;
+  position: relative;
   z-index: 20;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 18px 20px;
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  background: rgba(10, 13, 22, 0.84);
-  backdrop-filter: blur(18px);
-  box-shadow: var(--shadow);
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--bg-dark);
+  backdrop-filter: none;
+  box-shadow: none;
+  height: 38px;
+  min-height: 38px;
 }
 
 .brand-block {
   display: flex;
   align-items: center;
-  gap: 16px;
-  min-width: min(100%, 360px);
+  gap: 8px;
+  padding: 0 12px;
+  min-width: auto;
+  height: 100%;
+  border-right: 1px solid var(--border);
 }
 
 .brand-block > div {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .brand-block h1 {
   margin: 0;
-  font-size: clamp(1.4rem, 2vw, 2rem);
+  font-size: 0.82rem;
+  font-weight: 700;
   line-height: 1;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.01em;
+  color: var(--text-strong);
+  white-space: nowrap;
 }
 
 .brand-block p {
-  margin: 0;
-  max-width: 64ch;
-  color: var(--muted);
-  font-size: 0.94rem;
+  display: none; /* Hide description in Blender style — keep it minimal */
 }
 
-.topbar-actions,
+/* Brand eyebrow icon */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  flex-shrink: 0;
+}
+
+/* ─── Topbar Action Buttons ─── */
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  height: 100%;
+  padding: 0 2px;
+  flex-wrap: nowrap;
+}
+
+.topbar-actions button {
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text);
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  height: 28px;
+  cursor: pointer;
+  transition: background 120ms ease;
+  white-space: nowrap;
+}
+
+.topbar-actions button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  transform: none;
+  border-color: transparent;
+}
+
+.topbar-actions button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.topbar-actions .toggle-active {
+  background: var(--accent-muted);
+  color: var(--text-strong);
+  border-color: transparent;
+}
+
+/* ─── Space Tabs (2D / 3D) in topbar ─── */
+.topbar-actions .segmented {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  margin-right: 6px;
+  border-right: 1px solid var(--border);
+  padding-right: 6px;
+  height: 100%;
+}
+
+.topbar-actions .segmented button {
+  border-radius: 2px;
+  padding: 4px 12px;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.topbar-actions .segmented .toggle-active {
+  background: var(--accent-blue-muted);
+  color: #8ab4f8;
+}
+
+/* ─── Status Cluster ─── */
 .status-cluster {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.status-cluster {
+  gap: 4px;
   margin-left: auto;
+  padding: 0 8px;
+  height: 100%;
 }
 
 .status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  gap: 4px;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 2px;
   background: rgba(255, 255, 255, 0.04);
-  color: var(--muted);
-  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 500;
   white-space: nowrap;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   EDITOR LAYOUT — Blender 3-column system
+   ═══════════════════════════════════════════════════════════════════════════ */
 .editor-layout {
   display: grid;
-  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
+  grid-template-columns: 260px 1fr 290px;
+  gap: 0;
+  align-items: stretch;
+  overflow: hidden;
+  min-height: 0;
 }
 
+/* ─── Sidebar (Left — Outliner) ─── */
 .sidebar {
-  display: grid;
-  gap: 16px;
-  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-right: 1px solid var(--border);
+  background: var(--bg-dark);
 }
 
+/* ─── Viewport Panel (Center) ─── */
 .viewport-panel {
   min-width: 0;
-  display: grid;
-  place-items: start center;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   PANELS — Blender flat panel style
+   ═══════════════════════════════════════════════════════════════════════════ */
 .panel {
-  border: 1px solid var(--border);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
-    rgba(8, 11, 18, 0.86);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
+  border: none;
+  background: var(--bg-dark);
+  box-shadow: none;
+  backdrop-filter: none;
+  border-radius: 0;
 }
 
 .sidebar-panel {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-panel > *:not(.panel-header) {
+  padding: 0 10px;
+}
+
+.sidebar-panel > *:last-child {
+  padding-bottom: 10px;
 }
 
 .viewport-shell {
   width: 100%;
-  max-width: 1600px;
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 28px;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border-radius: 0;
+  flex: 1;
+  min-height: 0;
 }
 
+/* ─── Panel Header — Blender section header ─── */
 .panel-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+  user-select: none;
+  min-height: 32px;
 }
 
 .panel-header.compact {
@@ -131,349 +260,110 @@
 
 .panel h2 {
   margin: 0;
-  font-size: 1.1rem;
-  letter-spacing: -0.03em;
-}
-
-.panel-kicker,
-.status-line,
-.scene-meta small,
-.brand-block p,
-.viewport-copy p,
-.tool-card small,
-.shortcut-grid span,
-.empty-state span {
-  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--text);
 }
 
 .panel-kicker {
-  margin: 0 0 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.22em;
-  font-size: 0.7rem;
+  display: none; /* Hide kickers — Blender doesn't use them */
 }
 
+.status-line {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VIEWPORT — Blender 3D viewport style
+   ═══════════════════════════════════════════════════════════════════════════ */
 .viewport-copy {
-  display: grid;
-  gap: 4px;
+  display: none;
 }
 
-.viewport-copy h2 {
-  margin: 0;
-  font-size: 1.05rem;
-}
-
-.viewport-copy p {
-  margin: 0;
-  font-size: 0.92rem;
-}
-
-.viewport-toolbar,
-.segmented,
-.button-row,
-.topbar-actions {
+.viewport-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 2px 6px;
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border);
+  min-height: 30px;
+  flex-shrink: 0;
 }
 
+.viewport-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: nowrap;
+}
+
+.viewport-toolbar button {
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  height: 24px;
+}
+
+.viewport-toolbar button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  transform: none;
+}
+
+.viewport-toolbar .toggle-active {
+  background: var(--accent-blue-muted);
+  color: #8ab4f8;
+}
+
+/* Segmented inside panels */
 .segmented {
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--border-light);
+  border-radius: 3px;
+  background: var(--bg-darkest);
 }
 
 .segmented button {
   border: 0;
-  border-radius: 999px;
+  border-radius: 2px;
   background: transparent;
-  padding: 0.52rem 0.82rem;
+  padding: 3px 10px;
   box-shadow: none;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.segmented button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  transform: none;
 }
 
 .segmented .toggle-active {
-  background: rgba(244, 162, 89, 0.18);
-  color: var(--text-strong);
+  background: var(--accent-blue-muted);
+  color: #8ab4f8;
 }
 
-button {
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text);
-  border-radius: 14px;
-  padding: 0.68rem 0.92rem;
-  cursor: pointer;
-  transition:
-    transform 160ms ease,
-    border-color 160ms ease,
-    background 160ms ease,
-    color 160ms ease;
-}
-
-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.22);
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.toggle-active {
-  border-color: rgba(244, 162, 89, 0.52);
-  background: rgba(244, 162, 89, 0.16);
-  color: var(--text-strong);
-}
-
-.search-field,
-.field,
-.field-number {
-  display: grid;
-  gap: 8px;
-}
-
-.field > span,
-.field-number > span {
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 0.68rem;
-}
-
-.field input,
-.field textarea,
-.field select,
-.field-number input,
-.search-field input,
-.scene-meta input {
-  width: 100%;
-  min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text-strong);
-  padding: 0.72rem 0.85rem;
-  outline: none;
-}
-
-.field input:focus,
-.field textarea:focus,
-.field select:focus,
-.field-number input:focus,
-.search-field input:focus,
-.scene-meta input:focus {
-  border-color: rgba(126, 162, 255, 0.65);
-  box-shadow: 0 0 0 3px rgba(126, 162, 255, 0.12);
-}
-
-.field-number input {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.vector-group {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.tool-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.tool-card {
-  display: grid;
-  gap: 4px;
-  text-align: left;
-  min-height: 76px;
-  padding: 0.9rem 0.95rem;
-  border-radius: 18px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
-    rgba(255, 255, 255, 0.02);
-}
-
-.tool-card strong {
-  font-size: 0.98rem;
-}
-
-.scene-list {
-  display: grid;
-  gap: 8px;
-}
-
-.scene-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: center;
-  padding: 10px;
-  border: 1px solid transparent;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.025);
-}
-
-.scene-row.active {
-  border-color: rgba(244, 162, 89, 0.42);
-  background: rgba(244, 162, 89, 0.08);
-}
-
-.scene-row-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  cursor: pointer;
-}
-
-.scene-index {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.1rem;
-  padding: 0.4rem 0.5rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.72rem;
-}
-
-.scene-meta {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.scene-meta input {
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  font-weight: 600;
-  color: var(--text-strong);
-}
-
-.scene-meta small {
-  display: block;
-  font-size: 0.78rem;
-  line-height: 1.25;
-}
-
-.scene-icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2rem;
-  height: 2rem;
-  padding: 0 0.7rem;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.scene-delete {
-  color: #ffb2b2;
-}
-
-.scene-duplicate {
-  color: #bdd4ff;
-}
-
-.empty-state {
-  display: grid;
-  gap: 4px;
-  padding: 14px;
-  border: 1px dashed var(--border);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.inspector-form {
-  display: grid;
-  gap: 12px;
-}
-
-.component-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  max-height: 240px;
-  overflow: auto;
-  padding-right: 2px;
-}
-
-.component-list button {
-  padding: 0.62rem 0.78rem;
-  font-size: 0.88rem;
-}
-
-.shortcut-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.shortcut-grid div {
-  display: grid;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.shortcut-grid strong {
-  color: var(--text-strong);
-  font-family: var(--mono);
-  font-size: 0.85rem;
-}
-
-.code-panel {
-  display: grid;
-  gap: 12px;
-}
-
-.code-panel.closed {
-  display: none;
-}
-
-.code-block {
-  margin: 0;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: #0a0f18;
-  color: #dbe4f7;
-  max-height: 380px;
-  overflow: auto;
-  font-family: var(--mono);
-  font-size: 0.8rem;
-  line-height: 1.55;
-  white-space: pre;
-}
-
-.button-row button {
-  flex: 1 1 0;
-}
-
+/* ─── Viewport Stage ─── */
 .viewport-stage {
   position: relative;
-  min-height: clamp(480px, 68vh, 860px);
-  border: 1px solid var(--border);
-  border-radius: 24px;
+  flex: 1;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
   overflow: hidden;
-  background:
-    radial-gradient(circle at top, rgba(126, 162, 255, 0.12), transparent 38%),
-    radial-gradient(circle at bottom right, rgba(244, 162, 89, 0.1), transparent 34%),
-    linear-gradient(180deg, rgba(11, 15, 25, 0.92), rgba(9, 12, 18, 0.98));
-  box-shadow: var(--shadow);
+  background: #252525;
+  box-shadow: none;
 }
 
 .viewport-stage-frame {
@@ -498,29 +388,433 @@ button:disabled {
   height: 100%;
   display: grid;
   place-items: center;
-  color: var(--muted);
-  font-size: 0.94rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
 }
 
+/* ─── Viewport bottom hint bar ─── */
 .viewport-hint {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--bg-dark);
+  border-top: 1px solid var(--border);
+  min-height: 26px;
+  flex-shrink: 0;
 }
 
 .viewport-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0.5rem 0.72rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--muted);
-  font-size: 0.82rem;
+  gap: 4px;
+  padding: 1px 6px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.65rem;
+  font-weight: 500;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   BUTTONS — Blender flat button style
+   ═══════════════════════════════════════════════════════════════════════════ */
+button {
+  border: 1px solid var(--border-light);
+  background: var(--bg-raised);
+  color: var(--text);
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: background 100ms ease;
+  line-height: 1.4;
+}
+
+button:hover:not(:disabled) {
+  transform: none;
+  background: var(--bg-hover);
+  border-color: var(--border-light);
+}
+
+button:active:not(:disabled) {
+  background: var(--bg-active);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.toggle-active {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+  color: var(--text-strong);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FORM CONTROLS — Blender property editor style
+   ═══════════════════════════════════════════════════════════════════════════ */
+.search-field,
+.field,
+.field-number {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.field > span,
+.field-number > span {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.62rem;
+  font-weight: 600;
+}
+
+.field input,
+.field textarea,
+.field select,
+.field-number input,
+.search-field input,
+.scene-meta input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-light);
+  border-radius: 3px;
+  background: var(--bg-darkest);
+  color: var(--text-strong);
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  outline: none;
+  height: 26px;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus,
+.field-number input:focus,
+.search-field input:focus,
+.scene-meta input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 1px rgba(86, 128, 194, 0.2);
+}
+
+.field-number input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+
+.field input[type="color"] {
+  padding: 2px;
+  height: 26px;
+  cursor: pointer;
+}
+
+/* ─── Vector Group (Position / Rotation / Scale) ─── */
+.vector-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOOL GRID — Blender Add menu style
+   ═══════════════════════════════════════════════════════════════════════════ */
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-align: left;
+  min-height: auto;
+  padding: 5px 8px;
+  border-radius: 3px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-light);
+}
+
+.tool-card:hover {
+  background: var(--bg-hover);
+}
+
+.tool-card strong {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.tool-card small {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCENE LIST — Blender Outliner style
+   ═══════════════════════════════════════════════════════════════════════════ */
+.scene-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.scene-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 4px;
+  align-items: center;
+  padding: 3px 4px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+
+.scene-row:hover {
+  background: var(--bg-raised);
+}
+
+.scene-row.active {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.scene-row-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.scene-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: var(--bg-darkest);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+}
+
+.scene-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.scene-meta input {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-weight: 600;
+  font-size: 0.72rem;
+  color: var(--text-strong);
+  height: auto;
+}
+
+.scene-meta input:focus {
+  box-shadow: none;
+  border: none;
+}
+
+.scene-meta small {
+  display: block;
+  font-size: 0.62rem;
+  line-height: 1.2;
+  color: var(--text-dim);
+}
+
+/* ─── Scene Row Buttons ─── */
+.scene-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: auto;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 2px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+}
+
+.scene-icon-button:hover {
+  background: var(--bg-hover);
+}
+
+.scene-delete {
+  color: #e06060;
+}
+
+.scene-duplicate {
+  color: #6ba3e8;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EMPTY STATE
+   ═══════════════════════════════════════════════════════════════════════════ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  border: 1px dashed var(--border-light);
+  border-radius: 3px;
+  background: var(--bg-darkest);
+  font-size: 0.72rem;
+}
+
+.empty-state strong {
+  color: var(--text);
+  font-size: 0.72rem;
+}
+
+.empty-state span {
+  color: var(--text-dim);
+  font-size: 0.65rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INSPECTOR FORM — Blender Properties Panel
+   ═══════════════════════════════════════════════════════════════════════════ */
+.inspector-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+}
+
+/* ─── Component List (Face/Edge selectors) ─── */
+.component-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  max-height: 200px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.component-list button {
+  padding: 3px 6px;
+  font-size: 0.68rem;
+  border-radius: 2px;
+}
+
+/* ─── Shortcut Grid ─── */
+.shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  padding-top: 6px;
+}
+
+.shortcut-grid div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--bg-darkest);
+}
+
+.shortcut-grid strong {
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  background: var(--bg-raised);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.shortcut-grid span {
+  color: var(--text-dim);
+  font-size: 0.62rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CODE PANEL — Blender-style collapsible bottom section
+   ═══════════════════════════════════════════════════════════════════════════ */
+.code-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-dark);
+}
+
+.code-panel.closed {
+  display: none;
+}
+
+.code-block {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--bg-darkest);
+  color: #b8c8dc;
+  max-height: 220px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.button-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.button-row button {
+  flex: 1 1 0;
+  font-size: 0.68rem;
+  padding: 4px 6px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RIGHT PANEL — Properties area (Inspector + Code)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.right-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-left: 1px solid var(--border);
+  background: var(--bg-dark);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VISUALLY HIDDEN
+   ═══════════════════════════════════════════════════════════════════════════ */
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -533,50 +827,180 @@ button:disabled {
   border: 0;
 }
 
-@media (max-width: 1200px) {
+/* ═══════════════════════════════════════════════════════════════════════════
+   PANEL TOGGLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+.panel-toggles {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+}
+
+.panel-toggles button {
+  flex: 1;
+  padding: 3px;
+  font-size: 0.65rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 100ms;
+}
+
+.panel-toggles button:hover {
+  background: var(--bg-hover);
+}
+
+.panel-toggles button.active {
+  background: var(--accent-blue-muted);
+  border-color: var(--accent-blue);
+  color: #8ab4f8;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ROTATION CONTROLS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.rotation-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0;
+  padding: 6px;
+  background: var(--bg-darkest);
+  border-radius: 2px;
+  border: 1px solid var(--border);
+}
+
+.rotation-controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.rotation-controls input[type="number"] {
+  width: 56px;
+  padding: 2px 4px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-light);
+  color: var(--text-strong);
+  border-radius: 2px;
+  font-size: 0.68rem;
+  font-family: var(--mono);
+}
+
+.rotation-controls input[type="number"]:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COLLAPSED PANEL STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+.sidebar-panel.collapsed {
+  display: none;
+}
+
+.sidebar-panel .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.sidebar-panel .panel-header h2 {
+  margin: 0;
+  font-size: 0.72rem;
+}
+
+.sidebar-panel .collapse-toggle {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 2px;
+}
+
+.sidebar-panel .collapse-toggle:hover {
+  color: var(--text-strong);
+}
+
+.panel.minimized {
+  height: auto;
+  max-height: 32px;
+  overflow: hidden;
+}
+
+.panel.minimized .panel-content {
+  display: none;
+}
+
+.panel.minimized .panel-header {
+  margin-bottom: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE — Collapse to single column on small screens
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  .app-shell {
+    overflow-y: auto;
+  }
+
   .editor-layout {
     grid-template-columns: 1fr;
+    overflow: visible;
   }
 
-  .viewport-panel {
-    place-items: stretch;
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    max-height: 280px;
   }
 
-  .viewport-shell {
-    max-width: none;
+  .right-panel {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    max-height: 320px;
+  }
+
+  .viewport-stage {
+    min-height: 400px;
   }
 }
 
 @media (max-width: 760px) {
-  .app-shell {
-    padding: 12px;
-  }
-
   .topbar {
-    top: 8px;
-    padding: 16px;
+    height: auto;
+    min-height: 36px;
+    flex-wrap: wrap;
+    padding: 4px;
   }
 
   .brand-block {
-    width: 100%;
-    flex-direction: column;
-    align-items: flex-start;
+    border-right: none;
+    padding: 4px 8px;
   }
 
-  .topbar-actions,
+  .topbar-actions {
+    flex-wrap: wrap;
+    padding: 2px;
+  }
+
   .status-cluster {
     width: 100%;
+    padding: 2px 4px;
   }
 
-  .topbar-actions button,
-  .segmented button {
-    flex: 1 1 auto;
+  .sidebar {
+    max-height: 200px;
   }
 
-  .sidebar-panel,
-  .viewport-shell {
-    padding: 14px;
-    border-radius: 20px;
+  .right-panel {
+    max-height: 250px;
   }
 
   .tool-grid,
@@ -585,9 +1009,70 @@ button:disabled {
   .shortcut-grid {
     grid-template-columns: 1fr;
   }
+}
 
-  .viewport-stage {
-    min-height: 440px;
-    border-radius: 20px;
-  }
+/* ═══════════════════════════════════════════════════════════════════════════
+   CONTEXT MENU — Blender-style right-click popup
+   ═══════════════════════════════════════════════════════════════════════════ */
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  padding: 4px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.context-menu button:hover {
+  background: var(--accent-blue-muted);
+  color: #8ab4f8;
+  transform: none;
+}
+
+.context-menu .ctx-danger:hover {
+  background: rgba(224, 96, 96, 0.2);
+  color: #e06060;
+}
+
+.ctx-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.ctx-shortcut {
+  margin-left: auto;
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  font-family: var(--mono);
+}
+
+.ctx-separator {
+  height: 1px;
+  margin: 2px 4px;
+  background: var(--border);
 }

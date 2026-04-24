@@ -31,7 +31,7 @@ function randomInRange([min, max]: [number, number]): number {
   return min + Math.random() * (max - min)
 }
 
-export const useCubeStore = create<CubeStore>((set, get) => ({
+export const useCubeStore = create<CubeStore>((set) => ({
   cubes: [],
   selectedCubeId: null,
   hoveredCubeId: null,
@@ -84,6 +84,7 @@ export const useCubeStore = create<CubeStore>((set, get) => ({
               y * spacing,
               z * spacing - offset,
             ],
+            rotation: [0, 0, 0],
             color: [
               0.5 + Math.random() * 0.5,
               0.5 + Math.random() * 0.5,
@@ -113,6 +114,11 @@ export const useCubeStore = create<CubeStore>((set, get) => ({
           randomInRange(bounds.x),
           randomInRange(bounds.y),
           randomInRange(bounds.z),
+        ],
+        rotation: [
+          randomInRange([0, 360]),
+          randomInRange([0, 360]),
+          randomInRange([0, 360]),
         ],
         color: [
           0.3 + Math.random() * 0.7,
