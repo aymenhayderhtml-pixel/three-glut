@@ -10,14 +10,12 @@ export type PrimitiveKind =
   | 'cone'
   | 'torus'
   | 'teapot'
-  | 'ground'
-  | 'prism'
 
 export type TwoDDrawKind = 'line' | 'rect' | 'circle'
 
-export type TwoDTool = 'select' | 'measure' | TwoDDrawKind
+export type TwoDTool = 'select' | TwoDDrawKind
 
-export type ThreeDEditMode = 'object' | 'edge' | 'face' | 'measure'
+export type ThreeDEditMode = 'object' | 'edge' | 'face'
 
 export type AxisLock = 'x' | 'y' | 'z' | null
 
@@ -46,13 +44,6 @@ export interface CubeExtents {
   zPos: number
 }
 
-export interface HoleData {
-  id: string
-  position: [number, number, number]
-  radius: number
-  axis: 'x' | 'y' | 'z'
-}
-
 export interface SceneObject {
   id: string
   name: string
@@ -72,10 +63,8 @@ export interface SceneObject {
   innerRadius: number
   outerRadius: number
   size: number
-  depth: number
   facePulls: Partial<Record<CubeFaceKey, number>>
   edgePulls: Partial<Record<CubeEdgeKey, number>>
-  holes: HoleData[]
 }
 
 export interface SceneDocument {
@@ -91,7 +80,7 @@ export const SPACE_LABELS: Record<Space, string> = {
 
 export const SPACE_KINDS = {
   '2d': ['line', 'rect', 'circle', 'polygon'] as const,
-  '3d': ['cube', 'sphere', 'cone', 'torus', 'teapot', 'ground', 'prism'] as const,
+  '3d': ['cube', 'sphere', 'cone', 'torus', 'teapot'] as const,
 } satisfies Record<Space, readonly PrimitiveKind[]>
 
 export const KIND_LABELS: Record<PrimitiveKind, string> = {
@@ -104,8 +93,6 @@ export const KIND_LABELS: Record<PrimitiveKind, string> = {
   cone: 'Cone',
   torus: 'Torus',
   teapot: 'Teapot',
-  ground: 'Ground',
-  prism: 'Prism',
 }
 
 export const CUBE_FACE_KEYS: CubeFaceKey[] = [
@@ -181,8 +168,6 @@ const DEFAULT_COLORS: Record<PrimitiveKind, [number, number, number]> = {
   cone: [0.97, 0.43, 0.35],
   torus: [0.66, 0.52, 1.0],
   teapot: [0.52, 0.91, 0.83],
-  ground: [0.45, 0.42, 0.38],
-  prism: [0.85, 0.55, 0.95],
 }
 
 const VALID_KINDS = new Set<PrimitiveKind>([
@@ -195,8 +180,6 @@ const VALID_KINDS = new Set<PrimitiveKind>([
   'cone',
   'torus',
   'teapot',
-  'ground',
-  'prism',
 ])
 
 const STORAGE_KEY = 'three-glut-scene-document'
@@ -315,10 +298,8 @@ function baseSceneObject(kind: PrimitiveKind, index: number): SceneObject {
     innerRadius: 0.35,
     outerRadius: 1.0,
     size: 1.1,
-    depth: 1.0,
     facePulls: {},
     edgePulls: {},
-    holes: [],
   }
 }
 
@@ -384,23 +365,6 @@ export function createSceneObject(kind: PrimitiveKind, index: number): SceneObje
         size: 0.95,
         segments: 10,
       }
-    case 'ground':
-      return {
-        ...object,
-        width: 8,
-        height: 0.1,
-        depth: 8,
-        position: [0, -2.3, 0] as [number, number, number],
-        rotation: [0, 0, 0] as [number, number, number],
-      }
-    case 'prism':
-      return {
-        ...object,
-        radius: 0.9,
-        height: 1.6,
-        sides: 3,
-        segments: 1,
-      }
   }
 }
 
@@ -426,7 +390,6 @@ export function copySceneObject(source: SceneObject): SceneObject {
     color: [...source.color] as [number, number, number],
     facePulls: { ...source.facePulls },
     edgePulls: { ...source.edgePulls },
-    holes: source.holes.map(h => ({ ...h, position: [...h.position] as [number, number, number] })),
   }
 }
 
@@ -491,10 +454,8 @@ function hydrateSceneObject(
       ? clamp(rawRecord.outerRadius, 0.1)
       : base.outerRadius,
     size: isFiniteNumber(rawRecord.size) ? clamp(rawRecord.size, 0.1) : base.size,
-    depth: isFiniteNumber(rawRecord.depth) ? clamp(rawRecord.depth, 0.1) : base.depth,
     facePulls: sanitizePullMap(rawRecord.facePulls, CUBE_FACE_KEYS),
     edgePulls: sanitizePullMap(rawRecord.edgePulls, CUBE_EDGE_KEYS),
-    holes: Array.isArray(rawRecord.holes) ? rawRecord.holes as HoleData[] : [],
   }
 }
 
@@ -617,88 +578,5 @@ export function hexToVec3(hex: string): [number, number, number] {
     Number.parseInt(parts[0] ?? 'ff', 16) / 255,
     Number.parseInt(parts[1] ?? 'ff', 16) / 255,
     Number.parseInt(parts[2] ?? 'ff', 16) / 255,
-  ]
-}
-
-export function getObjectDimensions(object: SceneObject): [number, number, number] {
-  switch (object.kind) {
-    case 'cube': {
-      const extents = computeCubeExtents(object)
-      return [
-        round(extents.xNeg + extents.xPos),
-        round(extents.yNeg + extents.yPos),
-        round(extents.zNeg + extents.zPos),
-      ]
-    }
-    case 'sphere':
-      return [round(object.radius * 2), round(object.radius * 2), round(object.radius * 2)]
-    case 'cone':
-      return [round(object.radius * 2), round(object.height), round(object.radius * 2)]
-    case 'torus':
-      return [round(object.outerRadius * 2), round(object.outerRadius * 2), round(object.innerRadius * 2)]
-    case 'teapot':
-      return [round(object.size * 2), round(object.size * 1.5), round(object.size * 2)]
-    case 'ground':
-      return [round(object.width), round(object.height), round(object.depth)]
-    case 'prism': {
-      const topPull = object.facePulls?.yPos || 0
-      const botPull = object.facePulls?.yNeg || 0
-      const sidePull = (object.facePulls?.xPos || 0) + (object.facePulls?.xNeg || 0) + (object.facePulls?.zNeg || 0)
-      const r = object.radius + sidePull
-      const h = object.height + topPull + botPull
-      return [round(r * 2), round(h), round(r * 2)]
-    }
-    case 'rect':
-      return [round(object.width), round(object.height), 0]
-    case 'line':
-      return [round(object.length), 0, 0]
-    case 'circle':
-    case 'polygon':
-      return [round(object.radius * 2), round(object.radius * 2), 0]
-    default:
-      return [0, 0, 0]
-  }
-}
-
-export function getObjectVertices(object: SceneObject): [number, number, number][] {
-  if (object.kind === 'cube') {
-    const extents = computeCubeExtents(object)
-    return [
-      [-extents.xNeg, -extents.yNeg, -extents.zNeg],
-      [extents.xPos, -extents.yNeg, -extents.zNeg],
-      [-extents.xNeg, extents.yPos, -extents.zNeg],
-      [extents.xPos, extents.yPos, -extents.zNeg],
-      [-extents.xNeg, -extents.yNeg, extents.zPos],
-      [extents.xPos, -extents.yNeg, extents.zPos],
-      [-extents.xNeg, extents.yPos, extents.zPos],
-      [extents.xPos, extents.yPos, extents.zPos],
-    ]
-  }
-
-  // Fallback for other shapes: use the bounding box based on dimensions
-  const [w, h, d] = getObjectDimensions(object)
-  const hw = w / 2
-  const hh = h / 2
-  const hd = d / 2
-
-  // For 2D shapes, z is 0
-  if (object.space === '2d') {
-    return [
-      [-hw, -hh, 0],
-      [hw, -hh, 0],
-      [-hw, hh, 0],
-      [hw, hh, 0],
-    ]
-  }
-
-  return [
-    [-hw, -hh, -hd],
-    [hw, -hh, -hd],
-    [-hw, hh, -hd],
-    [hw, hh, -hd],
-    [-hw, -hh, hd],
-    [hw, -hh, hd],
-    [-hw, hh, hd],
-    [hw, hh, hd],
   ]
 }

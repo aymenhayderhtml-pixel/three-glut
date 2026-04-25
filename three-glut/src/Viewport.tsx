@@ -14,7 +14,6 @@ import {
   KIND_LABELS,
   SPACE_LABELS,
   formatColor,
-  getObjectVertices,
   type AxisLock,
   type CubeEdgeKey,
   type CubeFaceKey,
@@ -35,13 +34,11 @@ const TWO_D_TOOL_LABELS: Record<TwoDTool, string> = {
   line: 'Line',
   rect: 'Rect',
   circle: 'Circle',
-  measure: 'Measure',
 }
 const THREE_D_EDIT_MODE_LABELS: Record<ThreeDEditMode, string> = {
   object: 'Object',
   edge: 'Edge',
   face: 'Face',
-  measure: 'Measure',
 }
 
 type ViewportProps = {
@@ -82,8 +79,6 @@ type ViewportProps = {
     start: [number, number, number],
     end: [number, number, number],
   ) => void
-  onStatusChange?: (status: string) => void
-  lastMeasuredId: string | null
 }
 
 type TwoDDrawTool = Extract<TwoDTool, 'line' | 'rect' | 'circle'>
@@ -280,8 +275,6 @@ export function Viewport({
   onUpdateCubeFacePull,
   onUpdateCubeEdgePull,
   onCreate2DObject,
-  onStatusChange,
-  lastMeasuredId,
 }: ViewportProps) {
   const selectedObject =
     objects.find((object) => object.id === selectedId) ?? null
@@ -309,7 +302,7 @@ export function Viewport({
 
         <div className="viewport-toolbar">
           {space === '2d'
-            ? (['select', 'measure', 'line', 'rect', 'circle'] as const).map((tool) => (
+            ? (['select', 'line', 'rect', 'circle'] as const).map((tool) => (
                 <button
                   key={tool}
                   type="button"
@@ -319,10 +312,10 @@ export function Viewport({
                   {TWO_D_TOOL_LABELS[tool]}
                 </button>
               ))
-            : (['object', 'face', 'edge', 'measure'] as const).map((mode) => {
+            : (['object', 'face', 'edge'] as const).map((mode) => {
                 const disabled =
-                  (mode === 'face' || mode === 'edge') &&
-                  (!selectedObject || (selectedObject.kind !== 'cube' && selectedObject.kind !== 'prism'))
+                  mode !== 'object' &&
+                  (!selectedObject || selectedObject.kind !== 'cube')
 
                 return (
                   <button
@@ -353,8 +346,6 @@ export function Viewport({
             onCancelSceneTransaction={onCancelSceneTransaction}
             onMoveObject={onMoveObject}
             onCreate2DObject={onCreate2DObject}
-            onStatusChange={onStatusChange}
-            lastMeasuredId={lastMeasuredId}
           />
         ) : (
           <Suspense
@@ -381,8 +372,6 @@ export function Viewport({
               onMoveObject={onMoveObject}
               onUpdateCubeFacePull={onUpdateCubeFacePull}
               onUpdateCubeEdgePull={onUpdateCubeEdgePull}
-              onStatusChange={onStatusChange}
-              lastMeasuredId={lastMeasuredId}
             />
           </Suspense>
         )}
@@ -425,8 +414,6 @@ function TwoDViewport({
   onCancelSceneTransaction,
   onMoveObject,
   onCreate2DObject,
-  onStatusChange,
-  lastMeasuredId,
 }: {
   objects: SceneObject[]
   selectedId: string | null
@@ -447,8 +434,6 @@ function TwoDViewport({
     start: [number, number, number],
     end: [number, number, number],
   ) => void
-  onStatusChange?: (status: string) => void
-  lastMeasuredId: string | null
 }) {
   const surfaceRef = useRef<HTMLDivElement | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -639,7 +624,7 @@ function TwoDViewport({
       return
     }
 
-    if (active2DTool === 'select' || active2DTool === 'measure') {
+    if (active2DTool === 'select') {
       return
     }
 
@@ -663,13 +648,7 @@ function TwoDViewport({
     event.preventDefault()
     onSelect(object.id)
 
-    if (!grabMode && active2DTool !== 'measure') {
-      return
-    }
-
-    if (active2DTool === 'measure') {
-      onSelect(object.id)
-      onStatusChange?.(`Measuring ${object.name}`)
+    if (!grabMode) {
       return
     }
 
@@ -798,46 +777,6 @@ function TwoDViewport({
             Grab mode is active
           </text>
         ) : null}
-
-        {lastMeasuredId && (
-          <g>
-            {objects
-              .filter((o) => o.id === lastMeasuredId)
-              .map((o) => {
-                const vertices = getObjectVertices(o)
-                return (
-                  <g key={`measure-${o.id}`} pointerEvents="none">
-                    {vertices.map((vertex, index) => {
-                      const lx = vertex[0] * o.scale[0]
-                      const ly = vertex[1] * o.scale[1]
-                      
-                      // Format to 1 decimal
-                      const formatCoord = (v: number) => Number(v.toFixed(1))
-                      const text = `(${formatCoord(lx)}, ${formatCoord(ly)})`
-                      
-                      return (
-                        <g key={`vertex-${index}`}>
-                          <circle cx={o.position[0] + lx} cy={-o.position[1] - ly} r={0.08} fill="#8ab4f8" />
-                          <text
-                            x={o.position[0] + lx + 0.2}
-                            y={-o.position[1] - ly + 0.1}
-                            fill="#8ab4f8"
-                            fontSize={0.25}
-                            fontWeight="bold"
-                            style={{
-                              textShadow: '0 1px 2px rgba(0,0,0,0.8)'
-                            }}
-                          >
-                            {text}
-                          </text>
-                        </g>
-                      )
-                    })}
-                  </g>
-                )
-              })}
-          </g>
-        )}
       </svg>
     </div>
   )

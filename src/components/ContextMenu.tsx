@@ -6,6 +6,8 @@ export type ContextMenuAction =
   | { type: 'copy' }
   | { type: 'rotate'; axis: 'x' | 'y' | 'z' }
   | { type: 'add-hole' }
+  | { type: 'measure' }
+  | { type: 'pull' }
 
 export type ContextMenuState = {
   x: number
@@ -78,6 +80,14 @@ export function ContextMenu({
       <button type="button" onClick={() => onAction({ type: 'add-hole' })}>
         <span className="ctx-icon">◎</span> Add Hole
         <span className="ctx-shortcut">Beta</span>
+      </button>
+      <button type="button" onClick={() => onAction({ type: 'measure' })}>
+        <span className="ctx-icon">📏</span> Measure
+        <span className="ctx-shortcut">M</span>
+      </button>
+      <button type="button" onClick={() => onAction({ type: 'pull' })}>
+        <span className="ctx-icon">↕️</span> Pull
+        <span className="ctx-shortcut">Ctrl+P</span>
       </button>
       <div className="ctx-separator" />
       <button type="button" className="ctx-danger" onClick={() => onAction({ type: 'delete' })}>

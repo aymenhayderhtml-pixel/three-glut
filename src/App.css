@@ -1076,3 +1076,14 @@ button:disabled {
   margin: 2px 4px;
   background: var(--border);
 }
+
+.measure-tooltip-corner {
+  background: transparent;
+  color: #8ab4f8;
+  padding: 2px 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}

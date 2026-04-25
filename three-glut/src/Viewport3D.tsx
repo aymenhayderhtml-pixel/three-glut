@@ -4,12 +4,11 @@ import {
   useThree,
   type ThreeEvent,
 } from '@react-three/fiber'
-import { OrbitControls, Html } from '@react-three/drei'
+import { OrbitControls } from '@react-three/drei'
 import {
   Plane,
   Vector2,
   Vector3,
-  Euler,
   type Camera,
   type Object3D,
   type Raycaster,
@@ -20,7 +19,6 @@ import {
   CUBE_EDGE_TO_FACES,
   computeCubeExtents,
   formatColor,
-  getObjectVertices,
   type AxisLock,
   type CubeEdgeKey,
   type CubeFaceKey,
@@ -58,8 +56,6 @@ type ThreeViewportProps = {
     value: number,
     recordHistory?: boolean,
   ) => void
-  onStatusChange?: (status: string) => void
-  lastMeasuredId: string | null
 }
 
 type SceneMeshProps = {
@@ -92,8 +88,6 @@ type SceneMeshProps = {
     recordHistory?: boolean,
   ) => void
   onDragStateChange: (dragging: boolean) => void
-  onStatusChange?: (status: string) => void
-  lastMeasuredId: string | null
 }
 
 type DragState =
@@ -374,7 +368,9 @@ function CubeEditOverlay({
               onPointerDown={(event) => {
                 event.stopPropagation()
                 onSelectFace(faceKey)
-                onStartFaceDrag(faceKey, event)
+                if (grabMode) {
+                  onStartFaceDrag(faceKey, event)
+                }
               }}
             >
               <planeGeometry args={face.size} />
@@ -429,85 +425,6 @@ function CubeEditOverlay({
   return null
 }
 
-function PrismEditOverlay({
-  object,
-  editMode,
-  selectedFace,
-  onSelectFace,
-  onStartFaceDrag,
-}: {
-  object: SceneObject
-  editMode: ThreeDEditMode
-  selectedFace: CubeFaceKey | null
-  onSelectFace: (faceKey: CubeFaceKey | null) => void
-  onStartFaceDrag: (faceKey: CubeFaceKey, event: ThreeEvent<PointerEvent>) => void
-}) {
-  if (editMode !== 'face') return null
-
-  const topPull = object.facePulls?.yPos || 0
-  const botPull = object.facePulls?.yNeg || 0
-  const sidePull = (object.facePulls?.xPos || 0) + (object.facePulls?.xNeg || 0) + (object.facePulls?.zNeg || 0)
-  const r = Math.max(0.1, object.radius + sidePull)
-  const h = Math.max(0.1, object.height + topPull + botPull)
-  const hw = r * 1.73205 // exactly r * sqrt(3)
-  
-  // Top Face
-  const topPos = new Vector3(0, h / 2, 0)
-  // Rotate plane to face up, and rotate -90deg around Z (in 2D circle space) to align vertices
-  const topRot = new Euler(-Math.PI / 2, 0, -Math.PI / 2)
-  
-  // Bottom Face
-  const botPos = new Vector3(0, -h / 2, 0)
-  // Rotate plane to face down, and align vertices
-  const botRot = new Euler(Math.PI / 2, 0, Math.PI / 2)
-
-  // Side 0 (V0 to V1) -> mapped to 'xPos'
-  const side0Pos = new Vector3(r * 0.43301, 0, r * 0.25)
-  const side0Rot = new Euler(0, Math.PI / 3, 0)
-
-  // Side 1 (V1 to V2) -> mapped to 'zNeg'
-  const side1Pos = new Vector3(0, 0, -r * 0.5)
-  const side1Rot = new Euler(0, Math.PI, 0)
-
-  // Side 2 (V2 to V0) -> mapped to 'xNeg'
-  const side2Pos = new Vector3(-r * 0.43301, 0, r * 0.25)
-  const side2Rot = new Euler(0, -Math.PI / 3, 0)
-
-  const renderFace = (key: CubeFaceKey, pos: Vector3, rot: Euler, width: number, height: number, isCircle = false) => {
-    const active = key === selectedFace
-    return (
-      <mesh
-        key={key}
-        position={pos}
-        rotation={rot}
-        onPointerDown={(event) => {
-          event.stopPropagation()
-          onSelectFace(key)
-          onStartFaceDrag(key, event)
-        }}
-      >
-        {isCircle ? <circleGeometry args={[r, 3]} /> : <planeGeometry args={[width, height]} />}
-        <meshBasicMaterial
-          color={active ? activeFaceTint : faceTint}
-          transparent
-          opacity={active ? 0.42 : 0.18}
-          side={2}
-        />
-      </mesh>
-    )
-  }
-
-  return (
-    <>
-      {renderFace('yPos', topPos, topRot, r, r, true)}
-      {renderFace('yNeg', botPos, botRot, r, r, true)}
-      {renderFace('xPos', side0Pos, side0Rot, hw, h)}
-      {renderFace('zNeg', side1Pos, side1Rot, hw, h)}
-      {renderFace('xNeg', side2Pos, side2Rot, hw, h)}
-    </>
-  )
-}
-
 function SceneMesh({
   object,
   selected,
@@ -526,8 +443,6 @@ function SceneMesh({
   onUpdateCubeFacePull,
   onUpdateCubeEdgePull,
   onDragStateChange,
-  onStatusChange,
-  lastMeasuredId,
 }: SceneMeshProps) {
   const { camera, gl, raycaster } = useThree()
   const groupRef = useRef<Object3D | null>(null)
@@ -681,8 +596,6 @@ function SceneMesh({
     object.id,
     raycaster,
     dragState,
-    onStatusChange,
-    editMode,
   ])
 
   const color = useMemo(() => formatColor(object.color), [object.color])
@@ -703,38 +616,12 @@ function SceneMesh({
       ] as [number, number, number]
     : null
 
-  // Compute clipping planes for holes (beta)
-  const clippingPlanes = useMemo(() => {
-    if (!object.holes || object.holes.length === 0) return undefined
-    const planes: Plane[] = []
-    for (const hole of object.holes) {
-      const normal = new Vector3(
-        hole.axis === 'x' ? 1 : 0,
-        hole.axis === 'y' ? 1 : 0,
-        hole.axis === 'z' ? 1 : 0,
-      )
-      const pos = new Vector3(...hole.position)
-      // Two planes that clip a disc-like region through the object
-      planes.push(new Plane(normal.clone(), -pos.dot(normal) - hole.radius))
-      planes.push(new Plane(normal.clone().negate(), pos.dot(normal) - hole.radius))
-    }
-    return planes.length > 0 ? planes : undefined
-  }, [object.holes])
-
-  const hasHoles = clippingPlanes !== undefined
-
   const startObjectDrag = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation()
     event.nativeEvent.preventDefault()
     onSelect(object.id)
 
-    if (!grabMode && editMode !== 'measure') {
-      return
-    }
-
-    if (editMode === 'measure') {
-      onSelect(object.id)
-      onStatusChange?.(`Measuring ${object.name}`)
+    if (!grabMode) {
       return
     }
 
@@ -764,7 +651,7 @@ function SceneMesh({
     event.nativeEvent.preventDefault()
     onSelectFace(faceKey)
 
-    if (!groupRef.current) {
+    if (!grabMode || !groupRef.current) {
       return
     }
 
@@ -801,7 +688,7 @@ function SceneMesh({
     event.nativeEvent.preventDefault()
     onSelectEdge(edgeKey)
 
-    if (!groupRef.current) {
+    if (!grabMode || !groupRef.current) {
       return
     }
 
@@ -858,25 +745,9 @@ function SceneMesh({
             metalness={0.12}
             emissive={selected ? '#ffe4b5' : '#000000'}
             emissiveIntensity={selected ? 0.28 : 0}
-            clippingPlanes={clippingPlanes}
-            clipShadows={hasHoles}
           />
         </mesh>
       )}
-
-      {/* Hole indicator rings */}
-      {object.holes && object.holes.map((hole) => {
-        const rot: [number, number, number] =
-          hole.axis === 'x' ? [0, 0, Math.PI / 2] :
-          hole.axis === 'z' ? [Math.PI / 2, 0, 0] :
-          [0, 0, 0]
-        return (
-          <mesh key={hole.id} position={hole.position} rotation={rot}>
-            <torusGeometry args={[hole.radius, 0.02, 8, 32]} />
-            <meshBasicMaterial color="#ff6644" transparent opacity={0.7} />
-          </mesh>
-        )
-      })}
 
       {object.kind === 'sphere' && (
         <mesh>
@@ -948,47 +819,6 @@ function SceneMesh({
         </mesh>
       )}
 
-      {object.kind === 'ground' && (
-        <mesh>
-          <boxGeometry args={[object.width, object.height, object.depth]} />
-          <meshStandardMaterial
-            color={color}
-            roughness={0.85}
-            metalness={0.05}
-            emissive={selected ? '#ffe4b5' : '#000000'}
-            emissiveIntensity={selected ? 0.2 : 0}
-          />
-        </mesh>
-      )}
-
-      {object.kind === 'prism' && (() => {
-        const topPull = object.facePulls?.yPos || 0
-        const botPull = object.facePulls?.yNeg || 0
-        const sidePull = (object.facePulls?.xPos || 0) + (object.facePulls?.xNeg || 0) + (object.facePulls?.zNeg || 0)
-        const r = Math.max(0.1, object.radius + sidePull)
-        const h = Math.max(0.1, object.height + topPull + botPull)
-        return (
-          <mesh>
-            <cylinderGeometry
-              args={[
-                r,
-                r,
-                h,
-                3,
-                1,
-              ]}
-            />
-          <meshStandardMaterial
-            color={color}
-            roughness={0.45}
-            metalness={0.15}
-            emissive={selected ? '#ffe4b5' : '#000000'}
-            emissiveIntensity={selected ? 0.35 : 0}
-          />
-        </mesh>
-        )
-      })()}
-
       {selected && object.kind === 'cube' && editMode !== 'object' && (
         <CubeEditOverlay
           object={object}
@@ -1001,39 +831,6 @@ function SceneMesh({
           onStartFaceDrag={startFaceDrag}
           onStartEdgeDrag={startEdgeDrag}
         />
-      )}
-
-      {selected && object.kind === 'prism' && editMode !== 'object' && editMode !== 'measure' && (
-        <PrismEditOverlay
-          object={object}
-          editMode={editMode}
-          selectedFace={selectedFace}
-          onSelectFace={onSelectFace}
-          onStartFaceDrag={startFaceDrag}
-        />
-      )}
-
-      {lastMeasuredId === object.id && (
-        <group>
-          {getObjectVertices(object).map((vertex, index) => {
-            // Apply scale to local vertex
-            const lx = vertex[0] * object.scale[0]
-            const ly = vertex[1] * object.scale[1]
-            const lz = vertex[2] * object.scale[2]
-            
-            // Format the text: (x, y, z) rounded to 1 decimal
-            const formatCoord = (v: number) => Number(v.toFixed(1))
-            const text = `(${formatCoord(lx)}, ${formatCoord(ly)}, ${formatCoord(lz)})`
-            
-            return (
-              <Html key={`vertex-${index}`} position={[lx, ly, lz]} center>
-                <div className="measure-tooltip-corner">
-                  {text}
-                </div>
-              </Html>
-            )
-          })}
-        </group>
       )}
     </group>
   )
@@ -1056,8 +853,6 @@ export default function Viewport3D({
   onMoveObject,
   onUpdateCubeFacePull,
   onUpdateCubeEdgePull,
-  onStatusChange,
-  lastMeasuredId,
 }: ThreeViewportProps) {
   const [isDragging, setIsDragging] = useState(false)
 
@@ -1066,7 +861,6 @@ export default function Viewport3D({
       camera={{ position: [0, 1.6, 8], fov: 45 }}
       dpr={[1, 1.5]}
       shadows={false}
-      gl={{ localClippingEnabled: true }}
       onPointerMissed={() => {
         onSelect(null)
         onSelectFace(null)
@@ -1118,8 +912,6 @@ export default function Viewport3D({
           onUpdateCubeFacePull={onUpdateCubeFacePull}
           onUpdateCubeEdgePull={onUpdateCubeEdgePull}
           onDragStateChange={setIsDragging}
-          onStatusChange={onStatusChange}
-          lastMeasuredId={lastMeasuredId}
         />
       ))}
     </Canvas>

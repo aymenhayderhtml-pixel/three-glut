@@ -3,14 +3,12 @@ import {
   useMemo,
   useRef,
   useState,
-  useCallback,
   type ChangeEvent,
   type ReactNode,
 } from 'react'
 import './App.css'
 import { exportGlutProgram } from './exportGlut'
 import { Viewport } from './Viewport'
-import { ContextMenu, type ContextMenuAction, type ContextMenuState } from './components/ContextMenu'
 import {
   CUBE_EDGE_KEYS,
   CUBE_EDGE_LABELS,
@@ -58,7 +56,6 @@ const THREE_D_EDIT_MODE_LABELS: Record<ThreeDEditMode, string> = {
   object: 'Object',
   edge: 'Edge',
   face: 'Face',
-  measure: 'Measure',
 }
 
 const initialScenes: Record<Space, SceneObject[]> = {
@@ -307,14 +304,10 @@ function App() {
   const [grabMode, setGrabMode] = useState(false)
   const [axisLock, setAxisLock] = useState<AxisLock>(null)
   const [isCodePanelOpen, setIsCodePanelOpen] = useState(true)
-  const isExplorerOpen = true
-  const isInspectorOpen = true
   const [exportScope, setExportScope] = useState<ExportScope>('scene')
   const [searchQuery, setSearchQuery] = useState('')
   const [copyStatus, setCopyStatus] = useState('Ready to export')
-  const [contextMenu, setContextMenu] = useState<ContextMenuState>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const [lastMeasuredId, setLastMeasuredId] = useState<string | null>(null)
 
   const activeScene = scenes[activeSpace]
   const activeSelectionId = selection[activeSpace]
@@ -485,7 +478,6 @@ function App() {
       ...current,
       [activeSpace]: id,
     }))
-    setLastMeasuredId(null)
   }
 
   const selectSpace = (space: Space) => {
@@ -603,31 +595,6 @@ function App() {
       apply()
     }
   }
-
-  const handlePullAction = useCallback(() => {
-    if (activeSpace === '3d' && selectedCubeFace && selectedObject) {
-      const currentPull = selectedObject.facePulls[selectedCubeFace] || 0
-      const label = CUBE_FACE_LABELS[selectedCubeFace] || selectedCubeFace
-      const val = window.prompt(`Enter pull distance for ${label}:`, '0.5')
-      if (val !== null) {
-        const num = parseFloat(val)
-        if (!isNaN(num)) {
-          updateCubeFacePull(selectedCubeFace, currentPull + num, true)
-        }
-      }
-    }
-  }, [activeSpace, selectedObject, selectedCubeFace])
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key.toLowerCase() === 'p') {
-        e.preventDefault()
-        handlePullAction()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handlePullAction])
 
   const addObject = (kind: PrimitiveKind) => {
     const nextObject = createSceneObject(kind, activeScene.length)
@@ -891,79 +858,6 @@ function App() {
     setCopyStatus('Reset to starter scene')
   }
 
-  const handleContextMenuAction = (action: ContextMenuAction) => {
-    setContextMenu(null)
-    const objId = contextMenu?.objectId
-    if (!objId) return
-
-    switch (action.type) {
-      case 'grab':
-        selectObject(objId)
-        setGrabMode(true)
-        setAxisLock(null)
-        break
-      case 'delete':
-        deleteObjectById(objId)
-        break
-      case 'copy':
-        duplicateObjectById(objId)
-        break
-      case 'rotate': {
-        const scene = scenes[activeSpace]
-        const obj = scene.find((o) => o.id === objId)
-        if (!obj) break
-        const delta: [number, number, number] = [0, 0, 0]
-        if (action.axis === 'x') delta[0] = 15
-        if (action.axis === 'y') delta[1] = 15
-        if (action.axis === 'z') delta[2] = 15
-        const newRotation: [number, number, number] = [
-          obj.rotation[0] + delta[0],
-          obj.rotation[1] + delta[1],
-          obj.rotation[2] + delta[2],
-        ]
-        commitSceneChange(() => {
-          updateSceneObjects(activeSpace, (current) =>
-            current.map((o) =>
-              o.id === objId ? { ...o, rotation: newRotation } : o,
-            ),
-          )
-        })
-        break
-      }
-      case 'add-hole': {
-        const scene2 = scenes[activeSpace]
-        const obj2 = scene2.find((o) => o.id === objId)
-        if (!obj2 || obj2.space !== '3d') break
-        const newHole = {
-          id: `hole_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-          position: [0, 0, 0] as [number, number, number],
-          radius: 0.3,
-          axis: 'y' as const,
-        }
-        commitSceneChange(() => {
-          updateSceneObjects(activeSpace, (current) =>
-            current.map((o) =>
-              o.id === objId ? { ...o, holes: [...o.holes, newHole] } : o,
-            ),
-          )
-        })
-        break
-      }
-      case 'measure': {
-        const scene = scenes[activeSpace]
-        const obj = scene.find((o) => o.id === objId)
-        if (!obj) break
-        setCopyStatus(`Measuring ${obj.name}`)
-        setLastMeasuredId(objId)
-        break
-      }
-      case 'pull': {
-        handlePullAction()
-        break
-      }
-    }
-  }
-
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -1064,17 +958,13 @@ function App() {
   )
 
   return (
-    <div className="app-shell" onContextMenu={(e) => {
-      if (activeSelectionId) {
-        e.preventDefault()
-        setContextMenu({ x: e.clientX, y: e.clientY, objectId: activeSelectionId })
-      }
-    }}>
+    <div className="app-shell">
       <header className="topbar">
         <div className="brand-block">
-          <p className="eyebrow">TG</p>
+          <p className="eyebrow">Three GLUT</p>
           <div>
-            <h1>Three GLUT</h1>
+            <h1>Scene editor</h1>
+            <p>VS Code-style workspace for 2D and 3D primitives.</p>
           </div>
         </div>
 
@@ -1143,7 +1033,6 @@ function App() {
 
       <main className="editor-layout">
         <aside className="sidebar">
-          {isExplorerOpen && (
           <section className="panel sidebar-panel">
             <div className="panel-header compact">
               <div>
@@ -1210,44 +1099,7 @@ function App() {
               ) : null}
             </div>
           </section>
-          )}
-        </aside>
 
-        <section className="viewport-panel">
-          <Viewport
-            space={activeSpace}
-            objects={activeScene}
-            selectedId={activeSelectionId}
-            active2DTool={active2DTool}
-            threeDEditMode={effectiveThreeDEditMode}
-            selectedCubeFace={effectiveSelectedCubeFace}
-            selectedCubeEdge={effectiveSelectedCubeEdge}
-            grabMode={grabMode}
-            axisLock={axisLock}
-            on2DToolChange={setActive2DTool}
-            onThreeDEditModeChange={updateThreeDEditMode}
-            onSelectCubeFace={setSelectedCubeFace}
-            onSelectCubeEdge={setSelectedCubeEdge}
-            onSelect={selectObject}
-            onBeginSceneTransaction={beginSceneTransaction}
-            onCommitSceneTransaction={commitSceneTransaction}
-            onCancelSceneTransaction={cancelSceneTransaction}
-            onMoveObject={moveObject}
-            onUpdateCubeFacePull={updateCubeFacePull}
-            onUpdateCubeEdgePull={updateCubeEdgePull}
-            onCreate2DObject={create2DObjectFromGesture}
-            onStatusChange={(status) => {
-              setCopyStatus(status)
-              if (status.includes('Measuring')) {
-                if (activeSelectionId) setLastMeasuredId(activeSelectionId)
-              }
-            }}
-            lastMeasuredId={lastMeasuredId}
-          />
-        </section>
-
-        <aside className="right-panel">
-          {isInspectorOpen && (
           <section className="panel sidebar-panel">
             <div className="panel-header compact">
               <div>
@@ -1598,121 +1450,8 @@ function App() {
                         />
                       </>
                     ) : null}
-
-                    {selectedObject.kind === 'ground' ? (
-                      <>
-                        <NumberField
-                          label="Width"
-                          value={selectedObject.width}
-                          min={0.5}
-                          step={0.5}
-                          onChange={(value) =>
-                            updateSelected({ width: Math.max(0.5, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Height"
-                          value={selectedObject.height}
-                          min={0.05}
-                          step={0.05}
-                          onChange={(value) =>
-                            updateSelected({ height: Math.max(0.05, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Depth"
-                          value={selectedObject.depth}
-                          min={0.5}
-                          step={0.5}
-                          onChange={(value) =>
-                            updateSelected({ depth: Math.max(0.5, value) })
-                          }
-                        />
-                      </>
-                    ) : null}
-
-                    {selectedObject.kind === 'prism' ? (
-                      <>
-                        <NumberField
-                          label="Radius"
-                          value={selectedObject.radius}
-                          min={0.15}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ radius: Math.max(0.15, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Height"
-                          value={selectedObject.height}
-                          min={0.15}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ height: Math.max(0.15, value) })
-                          }
-                        />
-                      </>
-                    ) : null}
                   </>
                 ) : null}
-
-                {/* Holes (Beta) */}
-                {selectedObject.space === '3d' && (
-                  <div className="field">
-                    <span>Holes (Beta)</span>
-                    {selectedObject.holes.map((hole, hIdx) => (
-                      <div key={hole.id} style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 4 }}>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', minWidth: 20 }}>#{hIdx + 1}</span>
-                        <select
-                          value={hole.axis}
-                          style={{ flex: 1, fontSize: '0.68rem', padding: '2px 4px', background: 'var(--bg-darkest)', border: '1px solid var(--border-light)', color: 'var(--text)', borderRadius: 2 }}
-                          onChange={(e) => {
-                            const newHoles = [...selectedObject.holes]
-                            newHoles[hIdx] = { ...hole, axis: e.target.value as 'x' | 'y' | 'z' }
-                            updateSelected({ holes: newHoles })
-                          }}
-                        >
-                          <option value="x">X</option>
-                          <option value="y">Y</option>
-                          <option value="z">Z</option>
-                        </select>
-                        <input
-                          type="number"
-                          value={hole.radius}
-                          step={0.05}
-                          min={0.05}
-                          style={{ width: 50, fontSize: '0.68rem', padding: '2px 4px', background: 'var(--bg-darkest)', border: '1px solid var(--border-light)', color: 'var(--text)', borderRadius: 2 }}
-                          onChange={(e) => {
-                            const newHoles = [...selectedObject.holes]
-                            newHoles[hIdx] = { ...hole, radius: Math.max(0.05, Number(e.target.value)) }
-                            updateSelected({ holes: newHoles })
-                          }}
-                        />
-                        <button
-                          type="button"
-                          style={{ padding: '2px 6px', fontSize: '0.6rem', color: '#e06060' }}
-                          onClick={() => {
-                            updateSelected({ holes: selectedObject.holes.filter((_, i) => i !== hIdx) })
-                          }}
-                        >✕</button>
-                      </div>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newHole = {
-                          id: `hole_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-                          position: [0, 0, 0] as [number, number, number],
-                          radius: 0.3,
-                          axis: 'y' as const,
-                        }
-                        updateSelected({ holes: [...selectedObject.holes, newHole] })
-                      }}
-                    >
-                      + Add Hole
-                    </button>
-                  </div>
-                )}
 
                 <div className="shortcut-grid">
                   <div>
@@ -1748,7 +1487,6 @@ function App() {
               </div>
             )}
           </section>
-          )}
 
           <section
             className={
@@ -1803,6 +1541,32 @@ function App() {
             <pre className="code-block">{exportedCode}</pre>
           </section>
         </aside>
+
+        <section className="viewport-panel">
+          <Viewport
+            space={activeSpace}
+            objects={activeScene}
+            selectedId={activeSelectionId}
+            active2DTool={active2DTool}
+            threeDEditMode={effectiveThreeDEditMode}
+            selectedCubeFace={effectiveSelectedCubeFace}
+            selectedCubeEdge={effectiveSelectedCubeEdge}
+            grabMode={grabMode}
+            axisLock={axisLock}
+            on2DToolChange={setActive2DTool}
+            onThreeDEditModeChange={updateThreeDEditMode}
+            onSelectCubeFace={setSelectedCubeFace}
+            onSelectCubeEdge={setSelectedCubeEdge}
+            onSelect={selectObject}
+            onBeginSceneTransaction={beginSceneTransaction}
+            onCommitSceneTransaction={commitSceneTransaction}
+            onCancelSceneTransaction={cancelSceneTransaction}
+            onMoveObject={moveObject}
+            onUpdateCubeFacePull={updateCubeFacePull}
+            onUpdateCubeEdgePull={updateCubeEdgePull}
+            onCreate2DObject={create2DObjectFromGesture}
+          />
+        </section>
       </main>
 
       <input
@@ -1811,12 +1575,6 @@ function App() {
         accept="application/json,.json"
         className="visually-hidden"
         onChange={importSceneJson}
-      />
-
-      <ContextMenu
-        state={contextMenu}
-        onAction={handleContextMenuAction}
-        onClose={() => setContextMenu(null)}
       />
     </div>
   )
