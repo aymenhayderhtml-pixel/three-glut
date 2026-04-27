@@ -37,12 +37,29 @@ Implemented the following 10 fixes and improvements to the Three GLUT project:
    - Explicitly set `scale = [1, 1, 1]` for prism render props to ensure predictable geometry sizing.
 
 10. **Dead Code Cleanup:**
-    - Removed unused voxel subsystem files:
-      - `src/managers/CubeManager.ts`
-      - `src/store/cubeStore.ts`
-      - `src/components/VoxelScene.tsx`
-      - `src/components/VoxelControls.tsx`
-      - `src/components/VoxelViewport.tsx`
-      - `src/components/VoxelStyles.css`
-      - `src/voxel-index.ts`
-    - Removed unused `getFallbackSelection` function from `src/App.tsx`.
+    - Removed unused voxel subsystem files and the entire `three-glut/` subfolder.
+    - Verified no leftover imports exist in the root `src/` directory.
+
+11. **Viewport Stability (src/Viewport3D.tsx):**
+    - Implemented conditional `TransformControls` attachment to prevent crashes when `meshRef.current` is null.
+    - Wrapped state updates in `requestAnimationFrame` to avoid "update during render" errors.
+
+12. **3D Measure Tool (src/Viewport3D.tsx):**
+    - Added `MeasureLabels` component using `<Html>` overlays.
+    - Displays vertex coordinates and bounding box dimensions ($W, H, D$) in the 3D view.
+
+13. **Prism Undo & History (src/App.tsx):**
+    - Connected prism mesh modifications (extrude, bevel, delete face) to the main history stack.
+    - Optimized transform updates to provide "live" feedback without polluting the history with per-frame snapshots.
+
+14. **GLUT Export Safety (src/exportGlut.ts):**
+    - Refactored custom prism definition logic to avoid `window` global mutations.
+    - Added `glLineWidth(1.0f)` reset after drawing lines to maintain rendering consistency.
+
+15. **Circle Drawing Consistency (src/Viewport.tsx & src/App.tsx):**
+    - Unified 2D circle drawing to use center-based logic (center + radius).
+    - Added a center-point indicator to the 2D preview.
+
+16. **Prism Serialization (src/scene.ts):**
+    - Added `prismMesh` and `prismParams` to the serialization/hydration logic.
+    - Custom prism geometries now persist across duplication, save/load, and export.

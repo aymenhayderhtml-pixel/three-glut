@@ -784,7 +784,7 @@ function App() {
     if (kind === 'circle') {
       configuredObject = {
         ...nextObject,
-        position: [roundTo(start[0]), roundTo(start[1]), 0],
+        position: [start[0], start[1], 0],
         radius: roundTo(distance),
       }
     }
@@ -1256,11 +1256,20 @@ function App() {
               }
             }}
             onUpdateObject={(id, changes) => {
-              commitSceneChange(() => {
+              // Check if this is a prism mesh update (from PrismEditGizmo)
+              const isPrismMeshUpdate = 'prismMesh' in changes
+              if (isPrismMeshUpdate) {
+                commitSceneChange(() => {
+                  updateSceneObjects(activeSpace, (current) =>
+                    current.map((obj) => (obj.id === id ? { ...obj, ...changes } : obj)),
+                  )
+                })
+              } else {
+                // For transform controls (position/rotation/scale), don't record history on every frame
                 updateSceneObjects(activeSpace, (current) =>
                   current.map((obj) => (obj.id === id ? { ...obj, ...changes } : obj)),
                 )
-              })
+              }
             }}
             lastMeasuredId={lastMeasuredId}
           />

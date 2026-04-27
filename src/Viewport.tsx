@@ -1012,13 +1012,14 @@ function renderDraftShape(interaction: Extract<TwoDInteraction, { kind: 'draw' }
   }
 
   if (interaction.tool === 'circle') {
+    // Match final object behavior: start is center, distance is radius
     const radius = Math.max(
       0.15,
-      Math.hypot(current[0] - start[0], current[1] - start[1]),
+      Math.hypot(interaction.current[0] - interaction.start[0], interaction.current[1] - interaction.start[1]),
     )
 
     return (
-      <g transform={`translate(${start[0]} ${-start[1]})`}>
+      <g transform={`translate(${interaction.start[0]} ${-interaction.start[1]})`}>
         <circle
           r={radius}
           fill="none"
@@ -1027,6 +1028,8 @@ function renderDraftShape(interaction: Extract<TwoDInteraction, { kind: 'draw' }
           strokeDasharray="0.42 0.3"
           opacity={0.95}
         />
+        {/* Center point indicator */}
+        <circle r={0.08} fill={color} opacity={0.6} />
       </g>
     )
   }

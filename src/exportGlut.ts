@@ -109,6 +109,7 @@ function emit2DObject(lines: string[], object: SceneObject) {
       lines.push(`  glVertex2f(${toF(-object.length / 2)}, 0.0f);`)
       lines.push(`  glVertex2f(${toF(object.length / 2)}, 0.0f);`)
       lines.push(`  glEnd();`)
+      lines.push(`  glLineWidth(1.0f);`)
       break
     case 'rect':
       lines.push(`  glBegin(GL_QUADS);`)

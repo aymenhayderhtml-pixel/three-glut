@@ -439,6 +439,8 @@ export function copySceneObject(source: SceneObject): SceneObject {
     facePulls: { ...source.facePulls },
     edgePulls: { ...source.edgePulls },
     holes: source.holes.map(h => ({ ...h, position: [...h.position] as [number, number, number] })),
+    prismMesh: source.prismMesh ? JSON.parse(JSON.stringify(source.prismMesh)) : undefined,
+    prismParams: source.prismParams ? { ...source.prismParams } : undefined,
   }
 }
 
@@ -507,6 +509,16 @@ function hydrateSceneObject(
     facePulls: sanitizePullMap(rawRecord.facePulls, CUBE_FACE_KEYS),
     edgePulls: sanitizePullMap(rawRecord.edgePulls, CUBE_EDGE_KEYS),
     holes: Array.isArray(rawRecord.holes) ? rawRecord.holes as HoleData[] : [],
+    prismMesh: rawRecord.prismMesh && typeof rawRecord.prismMesh === 'object' 
+      ? JSON.parse(JSON.stringify(rawRecord.prismMesh)) as PrismMesh 
+      : undefined,
+    prismParams: rawRecord.prismParams && typeof rawRecord.prismParams === 'object'
+      ? {
+          sides: isFiniteNumber((rawRecord.prismParams as any).sides) ? Math.max(3, Math.round((rawRecord.prismParams as any).sides)) : 3,
+          radius: isFiniteNumber((rawRecord.prismParams as any).radius) ? Math.max(0.1, (rawRecord.prismParams as any).radius) : 0.9,
+          height: isFiniteNumber((rawRecord.prismParams as any).height) ? Math.max(0.1, (rawRecord.prismParams as any).height) : 1.6,
+        }
+      : undefined,
   }
 }
 
