@@ -1,4 +1,4 @@
-﻿import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Html, Line } from '@react-three/drei';
 import * as THREE from 'three';
@@ -72,13 +72,13 @@ function FaceComponent({ face, isSelected, onSelect, onExtrude }: any) {
 
 // Editor for a single prism object
 function PrismObject() {
-    const { mesh, selectedFaceId, faceMode, extrudeFace: storeExtrude, bevelEdge: storeBevel, deleteFace: storeDelete } = usePrismStore();
+    const { mesh, selectedFaceId, faceMode, extrudeFace: storeExtrude, bevelEdge: storeBevel, deleteFace: storeDelete, setSelectedFaceId } = usePrismStore();
     const [extrudeDelta, setExtrudeDelta] = useState(0);
     const [bevelAmount, setBevelAmount] = useState(0);
     const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
-    // Group vertices into a wireframe
-    const wireframeEdges = useRef<[THREE.Vector3, THREE.Vector3][]>([]);
+    // useState so React re-renders when the mesh changes (useRef mutations don’t trigger re-renders)
+    const [wireframeEdges, setWireframeEdges] = useState<[THREE.Vector3, THREE.Vector3][]>([]);
     useEffect(() => {
         const edges: [THREE.Vector3, THREE.Vector3][] = [];
         mesh.edges.forEach(edge => {
@@ -86,7 +86,7 @@ function PrismObject() {
             const v2 = mesh.vertices[edge.vertexIndices[1]];
             edges.push([toVector3(v1), toVector3(v2)]);
         });
-        wireframeEdges.current = edges;
+        setWireframeEdges(edges);
     }, [mesh]);
 
     const handleExtrude = () => {
@@ -117,13 +117,13 @@ function PrismObject() {
                     key={face.id}
                     face={face}
                     isSelected={faceMode && selectedFaceId === face.id}
-                    onSelect={(id: string) => usePrismStore.getState().setSelectedFaceId(id)}
+                    onSelect={(id: string) => setSelectedFaceId(id)}
                     onExtrude={(delta: number) => storeExtrude(face.id, delta)}
                 />
             ))}
 
             {/* Wireframe overlay */}
-            {wireframeEdges.current.map(([start, end], idx) => (
+            {wireframeEdges.map(([start, end], idx) => (
                 <Line key={idx} points={[start, end]} color="#ffffff" lineWidth={1} />
             ))}
 

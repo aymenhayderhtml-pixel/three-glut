@@ -1062,171 +1062,190 @@ function App() {
     </div>
   )
 
+  // Color dot helper: converts [r,g,b] (0-1) to CSS string
+  const objDotColor = (c: [number,number,number]) =>
+    `rgb(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)})`
+
+  const TOOL_3D = [
+    { id:'select',  icon:'◁', label:'Select'  },
+    { id:'move',    icon:'✥', label:'Move'    },
+    { id:'rotate',  icon:'↻', label:'Rotate'  },
+    { id:'scale',   icon:'⤢', label:'Scale'   },
+    { id:'pull',    icon:'↑', label:'Pull'    },
+    { id:'measure', icon:'⟷', label:'Measure' },
+    { id:'hole',    icon:'⊙', label:'Hole'    },
+  ] as const
+
+  const TOOL_2D = [
+    { id:'select', icon:'◁', label:'Select' },
+    { id:'line',   icon:'╱', label:'Line'   },
+    { id:'rect',   icon:'▭', label:'Rect'   },
+    { id:'circle', icon:'○', label:'Circle' },
+    { id:'measure',icon:'⟷', label:'Measure'},
+  ] as const
+
+  const PRIM_ICONS: Partial<Record<PrimitiveKind,string>> = {
+    cube:'■', sphere:'●', cone:'▲', torus:'◎', teapot:'☕', ground:'▬',
+    prism:'△', line:'╱', rect:'▭', circle:'○', polygon:'⬡',
+  }
+
+  const MODES: { id: ThreeDEditMode; label: string }[] = [
+    { id:'object',  label:'■ Object' },
+    { id:'face',    label:'— Face'   },
+    { id:'edge',    label:'— Edge'   },
+    { id:'measure', label:'/ Line'   },
+  ]
+
   return (
-    <div className="app-shell" onContextMenu={(e) => {
+    <div className="be-shell" onContextMenu={(e) => {
       if (activeSelectionId) {
         e.preventDefault()
         setContextMenu({ x: e.clientX, y: e.clientY, objectId: activeSelectionId })
       }
     }}>
-      <header className="topbar">
-        <div className="brand-block">
-          <p className="eyebrow">TG</p>
-          <div>
-            <h1>Three GLUT</h1>
-          </div>
+      {/* ── TOPBAR ── */}
+      <header className="be-topbar">
+        <div className="be-brand">
+          <span className="be-brand-icon">B</span>
+          <span className="be-brand-name">BuildEditor</span>
         </div>
 
-        <div className="topbar-actions">
-          <div className="segmented">
-            {(['2d', '3d'] as const).map((space) => (
-              <button
-                key={space}
-                type="button"
-                className={activeSpace === space ? 'toggle-active' : ''}
-                onClick={() => selectSpace(space)}
-              >
-                {SPACE_LABELS[space]}
-              </button>
-            ))}
-          </div>
+        {/* Tool strip */}
+        <div className="be-tool-strip">
+          {(['2d', '3d'] as const).map((space) => (
+            <button
+              key={space}
+              type="button"
+              className={`be-tool${activeSpace === space ? ' active' : ''}`}
+              onClick={() => selectSpace(space)}
+            >
+              <span className="be-tool-icon">{space === '2d' ? '▦' : '⬡'}</span>
+              {SPACE_LABELS[space]}
+            </button>
+          ))}
 
-          <button
-            type="button"
-            className={grabMode ? 'toggle-active' : ''}
-            disabled={!selectedObject}
-            onClick={() => {
-              if (!selectedObject) {
-                return
-              }
+          <div className="be-tool-sep" />
 
-              setGrabMode((current) => !current)
-              setAxisLock(null)
-            }}
-          >
-            Grab
-          </button>
-          <button type="button" disabled={!history.past.length} onClick={undo}>
-            Undo
-          </button>
-          <button type="button" disabled={!history.future.length} onClick={redo}>
-            Redo
-          </button>
-          <button type="button" onClick={() => fileInputRef.current?.click()}>
-            Import
-          </button>
-          <button type="button" onClick={downloadSceneJson}>
-            Export JSON
-          </button>
-          <button type="button" onClick={resetScenes}>
-            Reset
-          </button>
-          <button
-            type="button"
-            className={isExplorerOpen ? 'toggle-active' : ''}
-            onClick={() => setIsExplorerOpen((current) => !current)}
-          >
-            Explorer
-          </button>
-          <button
-            type="button"
-            className={isInspectorOpen ? 'toggle-active' : ''}
-            onClick={() => setIsInspectorOpen((current) => !current)}
-          >
-            Inspector
-          </button>
-          <button
-            type="button"
-            className={isCodePanelOpen ? 'toggle-active' : ''}
-            onClick={() => setIsCodePanelOpen((current) => !current)}
-          >
-            Code
-          </button>
+          {activeSpace === '3d' && TOOL_3D.map(t => (
+            <button
+              key={t.id}
+              type="button"
+              className={`be-tool${
+                t.id === 'select' && !grabMode && effectiveThreeDEditMode === 'object' ? ' active' :
+                t.id === 'move'   && grabMode ? ' active' :
+                t.id === 'measure' && effectiveThreeDEditMode === 'measure' ? ' active' : ''
+              }`}
+              onClick={() => {
+                if (t.id === 'select')  { setGrabMode(false); updateThreeDEditMode('object') }
+                if (t.id === 'move')    { if (selectedObject) setGrabMode(true) }
+                if (t.id === 'rotate')  { if (selectedObject) setGrabMode(true) }
+                if (t.id === 'scale')   { if (selectedObject) setGrabMode(true) }
+                if (t.id === 'pull')    handlePullAction()
+                if (t.id === 'measure') updateThreeDEditMode('measure')
+                if (t.id === 'hole')    handleContextMenuAction({ type: 'add-hole' } as any)
+              }}
+            >
+              <span className="be-tool-icon">{t.icon}</span>
+              {t.label}
+            </button>
+          ))}
+
+          {activeSpace === '2d' && TOOL_2D.map(t => (
+            <button
+              key={t.id}
+              type="button"
+              className={`be-tool${active2DTool === t.id ? ' active' : ''}`}
+              onClick={() => setActive2DTool(t.id as TwoDTool)}
+            >
+              <span className="be-tool-icon">{t.icon}</span>
+              {t.label}
+            </button>
+          ))}
         </div>
 
-        <div className="status-cluster">
-          <span className="status-pill">{SPACE_LABELS[activeSpace]}</span>
-          <span className="status-pill">{grabMode ? 'Grab' : 'Select'}</span>
-          <span className="status-pill">
-            {axisLock ? axisLock.toUpperCase() : 'Free'}
-          </span>
-          <span className="status-pill">{copyStatus}</span>
+        {/* Right actions */}
+        <div className="be-topbar-right">
+          <button type="button" disabled={!history.past.length} onClick={undo}>↩ Undo</button>
+          <button type="button" disabled={!history.future.length} onClick={redo}>↪ Redo</button>
+          <button type="button" onClick={() => fileInputRef.current?.click()}>Import</button>
+          <button type="button" onClick={resetScenes}>Clear</button>
         </div>
       </header>
 
-      <main className="editor-layout">
-        <aside className="sidebar">
-          {isExplorerOpen && (
-          <section className="panel sidebar-panel">
-            <div className="panel-header compact">
-              <div>
-                <p className="panel-kicker">Explorer</p>
-                <h2>Scene objects</h2>
-              </div>
-              <div className="segmented">
-                {( ['2d', '3d'] as const ).map((space) => (
-                  <button
-                    key={space}
-                    type="button"
-                    className={activeSpace === space ? 'toggle-active' : ''}
-                    onClick={() => selectSpace(space)}
-                  >
-                    {SPACE_LABELS[space]}
-                  </button>
-                ))}
-              </div>
-            </div>
+      {/* ── MODE BAR ── */}
+      {activeSpace === '3d' && (
+        <div className="be-modebar">
+          <span className="be-mode-label">MODE:</span>
+          {MODES.map(m => (
+            <button
+              key={m.id}
+              type="button"
+              className={`be-mode-btn${effectiveThreeDEditMode === m.id ? ' active' : ''}`}
+              onClick={() => updateThreeDEditMode(m.id)}
+            >
+              {m.label}
+            </button>
+          ))}
+          <span className="be-selected-label">
+            {selectedObject ? selectedObject.name : 'Nothing selected'}
+            {copyStatus && copyStatus !== 'Ready to export' ? (
+              <span style={{ marginLeft: 8, color: 'var(--be-text-dim)', fontWeight: 400 }}>
+                — {copyStatus}
+              </span>
+            ) : null}
+          </span>
+        </div>
+      )}
 
-            <label className="field search-field">
-              <span>Search</span>
-              <input
-                type="search"
-                placeholder="Filter by name or kind"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-              />
-            </label>
+      {/* ── MAIN CONTENT ── */}
+      <main className="be-content">
 
-            <div className="tool-grid">
+        {/* ── LEFT PANEL ── */}
+        <aside className="be-left-panel">
+          <div className="be-section">
+            <div className="be-section-header">Primitives</div>
+            <ul className="be-prim-list">
               {SPACE_KINDS[activeSpace].map((kind) => (
-                <button
+                <li
                   key={kind}
-                  type="button"
-                  className="tool-card"
+                  className="be-prim-item"
                   onClick={() => addObject(kind)}
                 >
-                  <strong>+ {KIND_LABELS[kind]}</strong>
-                  <small>{SPACE_LABELS[activeSpace]} primitive</small>
-                </button>
+                  <span className="be-prim-icon">{PRIM_ICONS[kind] ?? '□'}</span>
+                  {KIND_LABELS[kind]}
+                </li>
               ))}
-            </div>
+            </ul>
+          </div>
 
-            <div className="scene-list">
-              {filteredObjects.map(({ object, index }) => (
-                <ExplorerRow
-                  key={object.id}
-                  object={object}
-                  index={index}
-                  selected={object.id === activeSelectionId}
-                  onSelect={selectObject}
-                  onRename={renameObjectById}
-                  onDuplicate={duplicateObjectById}
-                  onDelete={deleteObjectById}
-                />
+          <div className="be-section">
+            <div className="be-section-header">Objects</div>
+            <ul className="be-obj-list">
+              {activeScene.map((obj) => (
+                <li
+                  key={obj.id}
+                  className={`be-obj-item${obj.id === activeSelectionId ? ' active' : ''}`}
+                >
+                  <span
+                    className="be-obj-dot"
+                    style={{ background: objDotColor(obj.color) }}
+                  />
+                  <span className="be-obj-name" onClick={() => selectObject(obj.id)}>
+                    {obj.name}
+                  </span>
+                  <button
+                    type="button"
+                    className="be-obj-delete"
+                    onClick={() => deleteObjectById(obj.id)}
+                  >×</button>
+                </li>
               ))}
-
-              {filteredObjects.length === 0 ? (
-                <div className="empty-state">
-                  <strong>No matches found.</strong>
-                  <span>Try a different search or add a new primitive.</span>
-                </div>
-              ) : null}
-            </div>
-          </section>
-          )}
+            </ul>
+          </div>
         </aside>
 
-        <section className="viewport-panel">
+        {/* ── VIEWPORT ── */}
+        <section className="be-viewport-wrap">
           <Viewport
             space={activeSpace}
             objects={activeScene}
@@ -1251,21 +1270,16 @@ function App() {
             onCreate2DObject={create2DObjectFromGesture}
             onStatusChange={(status) => {
               setCopyStatus(status)
-              if (status.includes('Measuring')) {
-                if (activeSelectionId) setLastMeasuredId(activeSelectionId)
-              }
+              if (status.includes('Measuring') && activeSelectionId) setLastMeasuredId(activeSelectionId)
             }}
             onUpdateObject={(id, changes) => {
-              // Check if this is a prism mesh update (from PrismEditGizmo)
-              const isPrismMeshUpdate = 'prismMesh' in changes
-              if (isPrismMeshUpdate) {
+              if ('prismMesh' in changes) {
                 commitSceneChange(() => {
                   updateSceneObjects(activeSpace, (current) =>
                     current.map((obj) => (obj.id === id ? { ...obj, ...changes } : obj)),
                   )
                 })
               } else {
-                // For transform controls (position/rotation/scale), don't record history on every frame
                 updateSceneObjects(activeSpace, (current) =>
                   current.map((obj) => (obj.id === id ? { ...obj, ...changes } : obj)),
                 )
@@ -1275,30 +1289,32 @@ function App() {
           />
         </section>
 
-        <aside className="right-panel">
-          {isInspectorOpen && (
-          <section className="panel sidebar-panel">
-            <div className="panel-header compact">
-              <div>
-                <p className="panel-kicker">Inspector</p>
-                <h2>Selection</h2>
-              </div>
-              <span className="status-line">
+        {/* ── RIGHT PANEL ── */}
+        <aside className="be-right-panel">
+
+          {/* INSPECTOR */}
+          <div className="be-section be-inspector-section">
+            <div className="be-section-header">
+              INSPECTOR
+              <span className="be-nothing-label">
                 {selectedObject
-                  ? `${KIND_LABELS[selectedObject.kind]} in ${SPACE_LABELS[selectedObject.space]}`
+                  ? `${KIND_LABELS[selectedObject.kind]}`
                   : 'Nothing selected'}
               </span>
             </div>
 
             {selectedObject ? (
-              <div className="inspector-form">
+              <div className="be-inspector-form">
                 <Field label="Name">
                   <input
                     type="text"
                     value={selectedObject.name}
-                    onChange={(event) =>
-                      updateSelected({ name: event.target.value }, false)
-                    }
+                    onChange={(e) => updateSelected({ name: e.target.value }, false)}
+                    onBlur={(e) => {
+                      const t = e.target.value.trim()
+                      if (t && t !== selectedObject.name) updateSelected({ name: t })
+                      else if (!t) updateSelected({ name: selectedObject.name }, false)
+                    }}
                   />
                 </Field>
 
@@ -1306,554 +1322,153 @@ function App() {
                   <input
                     type="color"
                     value={vec3ToHex(selectedObject.color)}
-                    onChange={(event) =>
-                      updateSelected({
-                        color: hexToVec3(event.target.value),
-                      }, false)
-                    }
+                    onChange={(e) => updateSelected({ color: hexToVec3(e.target.value) }, false)}
                   />
                 </Field>
 
-                {renderVectorFieldGroup(
-                  'Position',
-                  'position',
-                  selectedObject.position,
-                  0.1,
-                )}
-                {renderVectorFieldGroup(
-                  'Rotation',
-                  'rotation',
-                  selectedObject.rotation,
-                  1,
-                )}
-                {renderVectorFieldGroup('Scale', 'scale', selectedObject.scale, 0.1)}
+                {renderVectorFieldGroup('Position', 'position', selectedObject.position, 0.1)}
+                {renderVectorFieldGroup('Rotation', 'rotation', selectedObject.rotation, 1)}
+                {renderVectorFieldGroup('Scale',    'scale',    selectedObject.scale,    0.1)}
 
-                {selectedObject.space === '2d' ? (
-                  <>
-                    {selectedObject.kind === 'line' ? (
-                      <>
-                        <NumberField
-                          label="Length"
-                          value={selectedObject.length}
-                          min={0.15}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ length: Math.max(0.15, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Thickness"
-                          value={selectedObject.thickness}
-                          min={1}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ thickness: Math.max(1, value) })
-                          }
-                        />
-                      </>
-                    ) : null}
+                {/* 2D-specific fields */}
+                {selectedObject.space === '2d' && (<>
+                  {selectedObject.kind === 'line' && (<>
+                    <NumberField label="Length" value={selectedObject.length} min={0.15} step={0.1}
+                      onChange={(v) => updateSelected({ length: Math.max(0.15, v) })} />
+                    <NumberField label="Thickness" value={selectedObject.thickness} min={1} step={0.1}
+                      onChange={(v) => updateSelected({ thickness: Math.max(1, v) })} />
+                  </>)}
+                  {selectedObject.kind === 'rect' && (<>
+                    <NumberField label="Width" value={selectedObject.width} min={0.15} step={0.1}
+                      onChange={(v) => updateSelected({ width: Math.max(0.15, v) })} />
+                    <NumberField label="Height" value={selectedObject.height} min={0.15} step={0.1}
+                      onChange={(v) => updateSelected({ height: Math.max(0.15, v) })} />
+                  </>)}
+                  {selectedObject.kind === 'circle' && (
+                    <NumberField label="Radius" value={selectedObject.radius} min={0.1} step={0.1}
+                      onChange={(v) => updateSelected({ radius: Math.max(0.1, v) })} />
+                  )}
+                  {selectedObject.kind === 'polygon' && (<>
+                    <NumberField label="Radius" value={selectedObject.radius} min={0.1} step={0.1}
+                      onChange={(v) => updateSelected({ radius: Math.max(0.1, v) })} />
+                    <NumberField label="Sides" value={selectedObject.sides} min={3} step={1}
+                      onChange={(v) => updateSelected({ sides: Math.max(3, Math.round(v)) })} />
+                  </>)}
+                </>)}
 
-                    {selectedObject.kind === 'rect' ? (
-                      <>
-                        <NumberField
-                          label="Width"
-                          value={selectedObject.width}
-                          min={0.15}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ width: Math.max(0.15, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Height"
-                          value={selectedObject.height}
-                          min={0.15}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ height: Math.max(0.15, value) })
-                          }
-                        />
-                      </>
-                    ) : null}
-
-                    {selectedObject.kind === 'circle' ? (
-                      <>
-                        <NumberField
-                          label="Radius"
-                          value={selectedObject.radius}
-                          min={0.15}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ radius: Math.max(0.15, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Segments"
-                          value={selectedObject.segments}
-                          min={4}
-                          step={1}
-                          onChange={(value) =>
-                            updateSelected({ segments: Math.max(4, Math.round(value)) })
-                          }
-                        />
-                      </>
-                    ) : null}
-
-                    {selectedObject.kind === 'polygon' ? (
-                      <>
-                        <NumberField
-                          label="Radius"
-                          value={selectedObject.radius}
-                          min={0.15}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ radius: Math.max(0.15, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Sides"
-                          value={selectedObject.sides}
-                          min={3}
-                          step={1}
-                          onChange={(value) =>
-                            updateSelected({ sides: Math.max(3, Math.round(value)) })
-                          }
-                        />
-                      </>
-                    ) : null}
-                  </>
-                ) : null}
-
-                {selectedObject.space === '3d' ? (
-                  <>
-                    {selectedObject.kind === 'cube' ? (
-                      <>
-                        <div className="field">
-                          <span>Cube edit</span>
-                          <div className="segmented">
-                            {(['object', 'face', 'edge'] as const).map((mode) => {
-                              const disabled = mode !== 'object' && selectedObject.kind !== 'cube'
-                              return (
-                                <button
-                                  key={mode}
-                                  type="button"
-                                  className={
-                                    effectiveThreeDEditMode === mode
-                                      ? 'toggle-active'
-                                      : ''
-                                  }
-                                  disabled={disabled}
-                                  onClick={() => updateThreeDEditMode(mode)}
-                                >
-                                  {THREE_D_EDIT_MODE_LABELS[mode]}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-
-                        {effectiveThreeDEditMode === 'face' ? (
-                          <>
-                            <div className="component-list">
-                              {CUBE_FACE_KEYS.map((faceKey) => (
-                                <button
-                                  key={faceKey}
-                                  type="button"
-                                  className={
-                                    effectiveSelectedCubeFace === faceKey
-                                      ? 'toggle-active'
-                                      : ''
-                                  }
-                                  onClick={() => setSelectedCubeFace(faceKey)}
-                                >
-                                  {CUBE_FACE_LABELS[faceKey]}
-                                </button>
-                              ))}
-                            </div>
-                            {effectiveSelectedCubeFace ? (
-                              <NumberField
-                                label="Face pull"
-                                value={activeFacePull}
-                                step={0.1}
-                                onChange={(value) =>
-                                  updateCubeFacePull(
-                                    effectiveSelectedCubeFace,
-                                    value,
-                                  )
-                                }
-                              />
-                            ) : null}
-                          </>
-                        ) : null}
-
-                        {effectiveThreeDEditMode === 'edge' ? (
-                          <>
-                            <div className="component-list">
-                              {CUBE_EDGE_KEYS.map((edgeKey) => (
-                                <button
-                                  key={edgeKey}
-                                  type="button"
-                                  className={
-                                    effectiveSelectedCubeEdge === edgeKey
-                                      ? 'toggle-active'
-                                      : ''
-                                  }
-                                  onClick={() => setSelectedCubeEdge(edgeKey)}
-                                >
-                                  {CUBE_EDGE_LABELS[edgeKey]}
-                                </button>
-                              ))}
-                            </div>
-                            {effectiveSelectedCubeEdge ? (
-                              <NumberField
-                                label="Edge pull"
-                                value={activeEdgePull}
-                                step={0.1}
-                                onChange={(value) =>
-                                  updateCubeEdgePull(
-                                    effectiveSelectedCubeEdge,
-                                    value,
-                                  )
-                                }
-                              />
-                            ) : null}
-                          </>
-                        ) : null}
-
-                        <NumberField
-                          label="Size"
-                          value={selectedObject.size}
-                          min={0.15}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ size: Math.max(0.15, value) })
-                          }
-                        />
-                      </>
-                    ) : null}
-
-                    {selectedObject.kind === 'sphere' ? (
-                      <>
-                        <NumberField
-                          label="Radius"
-                          value={selectedObject.radius}
-                          min={0.15}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ radius: Math.max(0.15, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Segments"
-                          value={selectedObject.segments}
-                          min={8}
-                          step={1}
-                          onChange={(value) =>
-                            updateSelected({ segments: Math.max(8, Math.round(value)) })
-                          }
-                        />
-                      </>
-                    ) : null}
-
-                    {selectedObject.kind === 'cone' ? (
-                      <>
-                        <NumberField
-                          label="Radius"
-                          value={selectedObject.radius}
-                          min={0.15}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ radius: Math.max(0.15, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Height"
-                          value={selectedObject.height}
-                          min={0.15}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ height: Math.max(0.15, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Segments"
-                          value={selectedObject.segments}
-                          min={8}
-                          step={1}
-                          onChange={(value) =>
-                            updateSelected({ segments: Math.max(8, Math.round(value)) })
-                          }
-                        />
-                      </>
-                    ) : null}
-
-                    {selectedObject.kind === 'torus' ? (
-                      <>
-                        <NumberField
-                          label="Outer radius"
-                          value={selectedObject.outerRadius}
-                          min={0.15}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ outerRadius: Math.max(0.15, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Inner radius"
-                          value={selectedObject.innerRadius}
-                          min={0.05}
-                          step={0.05}
-                          onChange={(value) =>
-                            updateSelected({ innerRadius: Math.max(0.05, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Sides"
-                          value={selectedObject.sides}
-                          min={3}
-                          step={1}
-                          onChange={(value) =>
-                            updateSelected({ sides: Math.max(3, Math.round(value)) })
-                          }
-                        />
-                        <NumberField
-                          label="Segments"
-                          value={selectedObject.segments}
-                          min={8}
-                          step={1}
-                          onChange={(value) =>
-                            updateSelected({ segments: Math.max(8, Math.round(value)) })
-                          }
-                        />
-                      </>
-                    ) : null}
-
-                    {selectedObject.kind === 'ground' ? (
-                      <>
-                        <NumberField
-                          label="Width"
-                          value={selectedObject.width}
-                          min={0.5}
-                          step={0.5}
-                          onChange={(value) =>
-                            updateSelected({ width: Math.max(0.5, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Height"
-                          value={selectedObject.height}
-                          min={0.05}
-                          step={0.05}
-                          onChange={(value) =>
-                            updateSelected({ height: Math.max(0.05, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Depth"
-                          value={selectedObject.depth}
-                          min={0.5}
-                          step={0.5}
-                          onChange={(value) =>
-                            updateSelected({ depth: Math.max(0.5, value) })
-                          }
-                        />
-                      </>
-                    ) : null}
-
-                    {selectedObject.kind === 'prism' ? (
-                      <>
-                        <NumberField
-                          label="Radius"
-                          value={selectedObject.radius}
-                          min={0.15}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ radius: Math.max(0.15, value) })
-                          }
-                        />
-                        <NumberField
-                          label="Height"
-                          value={selectedObject.height}
-                          min={0.15}
-                          step={0.1}
-                          onChange={(value) =>
-                            updateSelected({ height: Math.max(0.15, value) })
-                          }
-                        />
-                      </>
-                    ) : null}
-                  </>
-                ) : null}
-
-                {selectedObject && selectedObject.kind === 'prism' && (
-                  <>
+                {/* 3D-specific fields */}
+                {selectedObject.space === '3d' && (<>
+                  {selectedObject.kind === 'cube' && (<>
+                    {(['xNeg','xPos','yNeg','yPos','zNeg','zPos'] as const).map((fk) => (
+                      <NumberField key={fk} label={CUBE_FACE_LABELS[fk]} value={selectedObject.facePulls[fk] ?? 0}
+                        step={0.05} onChange={(v) => updateCubeFacePull(fk, v, true)} />
+                    ))}
+                  </>)}
+                  {(selectedObject.kind === 'sphere' || selectedObject.kind === 'cone') && (<>
+                    <NumberField label="Radius" value={selectedObject.radius} min={0.1} step={0.1}
+                      onChange={(v) => updateSelected({ radius: Math.max(0.1, v) })} />
+                    <NumberField label="Height" value={selectedObject.height} min={0.1} step={0.1}
+                      onChange={(v) => updateSelected({ height: Math.max(0.1, v) })} />
+                    <NumberField label="Segments" value={selectedObject.segments} min={3} step={1}
+                      onChange={(v) => updateSelected({ segments: Math.max(3, Math.round(v)) })} />
+                  </>)}
+                  {selectedObject.kind === 'torus' && (<>
+                    <NumberField label="Outer radius" value={selectedObject.outerRadius} min={0.15} step={0.1}
+                      onChange={(v) => updateSelected({ outerRadius: Math.max(0.15, v) })} />
+                    <NumberField label="Inner radius" value={selectedObject.innerRadius} min={0.05} step={0.05}
+                      onChange={(v) => updateSelected({ innerRadius: Math.max(0.05, v) })} />
+                    <NumberField label="Sides" value={selectedObject.sides} min={3} step={1}
+                      onChange={(v) => updateSelected({ sides: Math.max(3, Math.round(v)) })} />
+                    <NumberField label="Segments" value={selectedObject.segments} min={8} step={1}
+                      onChange={(v) => updateSelected({ segments: Math.max(8, Math.round(v)) })} />
+                  </>)}
+                  {selectedObject.kind === 'ground' && (<>
+                    <NumberField label="Width" value={selectedObject.width} min={0.5} step={0.5}
+                      onChange={(v) => updateSelected({ width: Math.max(0.5, v) })} />
+                    <NumberField label="Height" value={selectedObject.height} min={0.05} step={0.05}
+                      onChange={(v) => updateSelected({ height: Math.max(0.05, v) })} />
+                    <NumberField label="Depth" value={selectedObject.depth} min={0.5} step={0.5}
+                      onChange={(v) => updateSelected({ depth: Math.max(0.5, v) })} />
+                  </>)}
+                  {selectedObject.kind === 'prism' && (<>
+                    <NumberField label="Radius" value={selectedObject.radius} min={0.15} step={0.1}
+                      onChange={(v) => updateSelected({ radius: Math.max(0.15, v) })} />
+                    <NumberField label="Height" value={selectedObject.height} min={0.15} step={0.1}
+                      onChange={(v) => updateSelected({ height: Math.max(0.15, v) })} />
                     <PrismProperties />
                     <PrismToolbar />
-                  </>
-                )}
+                  </>)}
 
-                {/* Holes (Beta) */}
-                {selectedObject.space === '3d' && (
+                  {/* Holes */}
                   <div className="field">
                     <span>Holes (Beta)</span>
-                    {selectedObject.holes.map((hole, hIdx) => (
-                      <div key={hole.id} style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 4 }}>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', minWidth: 20 }}>#{hIdx + 1}</span>
-                        <select
-                          value={hole.axis}
-                          style={{ flex: 1, fontSize: '0.68rem', padding: '2px 4px', background: 'var(--bg-darkest)', border: '1px solid var(--border-light)', color: 'var(--text)', borderRadius: 2 }}
-                          onChange={(e) => {
-                            const newHoles = [...selectedObject.holes]
-                            newHoles[hIdx] = { ...hole, axis: e.target.value as 'x' | 'y' | 'z' }
-                            updateSelected({ holes: newHoles })
-                          }}
-                        >
-                          <option value="x">X</option>
-                          <option value="y">Y</option>
-                          <option value="z">Z</option>
+                    {selectedObject.holes.map((hole, hi) => (
+                      <div key={hole.id} className="be-holes-row">
+                        <span style={{ fontSize:'0.62rem', color:'var(--be-text-dim)', minWidth:18 }}>#{hi+1}</span>
+                        <select value={hole.axis} onChange={(e) => {
+                          const nh = [...selectedObject.holes]; nh[hi]={...hole,axis:e.target.value as 'x'|'y'|'z'}
+                          updateSelected({ holes: nh })
+                        }}>
+                          <option value="x">X</option><option value="y">Y</option><option value="z">Z</option>
                         </select>
-                        <input
-                          type="number"
-                          value={hole.radius}
-                          step={0.05}
-                          min={0.05}
-                          style={{ width: 50, fontSize: '0.68rem', padding: '2px 4px', background: 'var(--bg-darkest)', border: '1px solid var(--border-light)', color: 'var(--text)', borderRadius: 2 }}
+                        <input type="number" value={hole.radius} step={0.05} min={0.05} style={{width:50}}
                           onChange={(e) => {
-                            const newHoles = [...selectedObject.holes]
-                            newHoles[hIdx] = { ...hole, radius: Math.max(0.05, Number(e.target.value)) }
-                            updateSelected({ holes: newHoles })
-                          }}
-                        />
-                        <button
-                          type="button"
-                          style={{ padding: '2px 6px', fontSize: '0.6rem', color: '#e06060' }}
-                          onClick={() => {
-                            updateSelected({ holes: selectedObject.holes.filter((_, i) => i !== hIdx) })
-                          }}
-                        >✕</button>
+                            const nh=[...selectedObject.holes]; nh[hi]={...hole,radius:Math.max(0.05,Number(e.target.value))}
+                            updateSelected({ holes: nh })
+                          }} />
+                        <button type="button" onClick={() =>
+                          updateSelected({ holes: selectedObject.holes.filter((_,i)=>i!==hi) })
+                        }>✕</button>
                       </div>
                     ))}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newHole = {
-                          id: `hole_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-                          position: [0, 0, 0] as [number, number, number],
-                          radius: 0.3,
-                          axis: 'y' as const,
-                        }
-                        updateSelected({ holes: [...selectedObject.holes, newHole] })
-                      }}
-                    >
-                      + Add Hole
-                    </button>
+                    <button type="button" onClick={() =>
+                      updateSelected({ holes: [...selectedObject.holes, {
+                        id:`hole_${Date.now()}`,position:[0,0,0] as [number,number,number],radius:0.3,axis:'y' as const
+                      }]})
+                    }>+ Add Hole</button>
                   </div>
-                )}
-
-                <div className="shortcut-grid">
-                  <div>
-                    <span>Grab</span>
-                    <strong>G</strong>
-                  </div>
-                  <div>
-                    <span>Lock X/Y/Z</span>
-                    <strong>X Y Z</strong>
-                  </div>
-                  <div>
-                    <span>Duplicate</span>
-                    <strong>Ctrl+D</strong>
-                  </div>
-                  <div>
-                    <span>Undo / Redo</span>
-                    <strong>Ctrl+Z / Ctrl+Y</strong>
-                  </div>
-                  <div>
-                    <span>Delete</span>
-                    <strong>Del</strong>
-                  </div>
-                  <div>
-                    <span>Exit grab</span>
-                    <strong>Esc</strong>
-                  </div>
-                </div>
+                </>)}
               </div>
             ) : (
-              <div className="empty-state">
-                <strong>No selection yet.</strong>
-                <span>Pick an object from the explorer or click one in the viewport.</span>
+              <div className="be-inspector-empty">
+                <div className="be-inspector-empty-icon">⬜</div>
+                <p>Select an object in the viewport<br/>or add one from the left panel</p>
               </div>
             )}
-          </section>
-          )}
+          </div>
 
-          <section
-            className={
-              isCodePanelOpen
-                ? 'panel sidebar-panel code-panel open'
-                : 'panel sidebar-panel code-panel closed'
-            }
-          >
-            <div className="panel-header compact">
-              <div>
-                <p className="panel-kicker">Code</p>
-                <h2>Export</h2>
+          {/* GLUT EXPORT */}
+          <div className="be-section be-export-section">
+            <div className="be-section-header">GLUT EXPORT</div>
+            <div className="be-export-stats">
+              <span className="be-stat">📄 {activeScene.length} objects</span>
+              <span className="be-stat">🟡 Colors preserved</span>
+            </div>
+            <button type="button" className="be-btn-primary" onClick={copyCode} disabled={!canExportCode}>
+              ⊕ Generate C Code
+            </button>
+            <button type="button" className="be-btn-secondary" onClick={downloadCode} disabled={!canExportCode}>
+              ↓ Download .c
+            </button>
+            <button type="button" className="be-btn-secondary" onClick={downloadSceneJson}>
+              📋 Download JSON
+            </button>
+            <div className="be-code-section">
+              <div className="be-code-scope">
+                <button type="button" className={exportScope==='scene' ? 'toggle-active':''} onClick={() => setExportScope('scene')}>Full scene</button>
+                <button type="button" className={exportScope==='selection' ? 'toggle-active':''} onClick={() => setExportScope('selection')}>Selection</button>
               </div>
-              <span className="status-line">
-                {exportScope === 'selection'
-                  ? selectedObject
-                    ? 'Selected object'
-                    : 'Nothing selected'
-                  : 'Full scene'}
-              </span>
+              <pre className="be-code-block">{exportedCode}</pre>
             </div>
+          </div>
 
-            <div className="segmented">
-              <button
-                type="button"
-                className={exportScope === 'scene' ? 'toggle-active' : ''}
-                onClick={() => setExportScope('scene')}
-              >
-                Full scene
-              </button>
-              <button
-                type="button"
-                className={exportScope === 'selection' ? 'toggle-active' : ''}
-                onClick={() => setExportScope('selection')}
-              >
-                Selected object
-              </button>
-            </div>
-
-            <div className="button-row">
-              <button type="button" onClick={copyCode} disabled={!canExportCode}>
-                Copy code
-              </button>
-              <button type="button" onClick={downloadCode} disabled={!canExportCode}>
-                Download code
-              </button>
-              <button type="button" onClick={downloadSceneJson}>
-                Download JSON
-              </button>
-            </div>
-
-            <pre className="code-block">{exportedCode}</pre>
-          </section>
         </aside>
       </main>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="application/json,.json"
-        className="visually-hidden"
-        onChange={importSceneJson}
-      />
+      <input ref={fileInputRef} type="file" accept="application/json,.json"
+        className="visually-hidden" onChange={importSceneJson} />
 
-      <ContextMenu
-        state={contextMenu}
-        onAction={handleContextMenuAction}
-        onClose={() => setContextMenu(null)}
-      />
+      <ContextMenu state={contextMenu} onAction={handleContextMenuAction} onClose={() => setContextMenu(null)} />
     </div>
   )
 }

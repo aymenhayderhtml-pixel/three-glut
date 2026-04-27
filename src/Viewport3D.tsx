@@ -188,7 +188,13 @@ function SelectableObject({ object, selected, onSelect, onUpdateObject, editMode
     <>
       {showTransformControls ? (
         <>
-          <group onClick={(e) => { e.stopPropagation(); onSelect(object.id); }}>
+          {/* Group carries the world transform so the mesh is in the right place */}
+          <group
+            position={object.position}
+            rotation={object.rotation.map((r: number) => r * Math.PI / 180) as [number, number, number]}
+            scale={object.scale}
+            onClick={(e) => { e.stopPropagation(); onSelect(object.id); }}
+          >
             <mesh ref={meshRef} scale={scale}>
               {geometry}
               <meshStandardMaterial color={object.color} emissive={selected ? 0x332200 : 0x000000} />
@@ -200,13 +206,11 @@ function SelectableObject({ object, selected, onSelect, onUpdateObject, editMode
               </mesh>
             )}
           </group>
+          {/* Attach TransformControls to the mesh ref — no extra position/rotation/scale needed */}
           {meshRef.current && (
             <TransformControls
               mode={transformMode}
               object={meshRef.current}
-              position={object.position}
-              rotation={object.rotation.map((r: number) => r * Math.PI / 180) as [number, number, number]}
-              scale={object.scale}
               onChange={(e: any) => {
                 if (e && e.target && e.target.object) {
                   const o = e.target.object;
@@ -288,10 +292,11 @@ export default function Viewport3D({
   const [gridY] = useState(-3.5);
   const selectedObject = objects.find((obj: SceneObject) => obj.id === selectedId);
 
-  // Disable OrbitControls when TransformControls is active or prism gizmo is active
-  const usingTransformControls = selectedObject && editMode === 'object';
+  // Disable orbit only when the prism gizmo needs exclusive pointer events.
+  // TransformControls handles its own pointer capture, so we don't need to
+  // globally block orbit when an object is merely selected in object mode.
   const usingPrismGizmo = selectedObject?.kind === 'prism' && (editMode === 'face' || editMode === 'edge');
-  const disableOrbit = usingTransformControls || usingPrismGizmo;
+  const disableOrbit = usingPrismGizmo;
 
   return (
     <div style={{ width: '100%', height: '100%', background: '#111' }}>

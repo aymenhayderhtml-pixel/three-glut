@@ -1,59 +1,73 @@
 /* ========================================================================
-   THREE GLUT — Blender-Inspired Design System
+   THREE GLUT — BuildEditor Dark Navy Design System
    ======================================================================== */
 
 :root {
-  /* ── Blender Dark Theme Colors ── */
-  --bg-darkest:   #1d1d1d;
-  --bg-dark:      #232323;
-  --bg-base:      #303030;
-  --bg-raised:    #3c3c3c;
-  --bg-hover:     #484848;
-  --bg-active:    #525252;
+  /* ── BuildEditor Dark Navy Palette ── */
+  --be-bg:            #0b0e1a;
+  --be-surface:       #0f1222;
+  --be-surface-2:     #141828;
+  --be-surface-3:     #1a2036;
+  --be-surface-4:     #212744;
+  --be-border:        #1f2540;
+  --be-border-2:      #2a3155;
+
+  /* ── Accent ── */
+  --be-accent:        #5046d4;
+  --be-accent-hover:  #6257d9;
+  --be-accent-muted:  rgba(80, 70, 212, 0.22);
+  --be-accent-text:   #9b93f0;
 
   /* ── Text ── */
-  --text:         #c8c8c8;
-  --text-strong:  #e8e8e8;
-  --text-muted:   #909090;
-  --text-dim:     #686868;
+  --be-text:          #b8c2de;
+  --be-text-strong:   #e2e8f8;
+  --be-text-dim:      #505878;
+  --be-text-label:    #6b7599;
 
-  /* ── Accent Colors (Blender-style) ── */
-  --accent:       #ed5b00;           /* Blender selection orange */
-  --accent-muted: rgba(237, 91, 0, 0.25);
-  --accent-blue:  #5680c2;           /* Blender blue highlight */
-  --accent-blue-muted: rgba(86, 128, 194, 0.22);
-
-  /* ── Borders ── */
-  --border:       #1a1a1a;
-  --border-light: #404040;
-  --border-focus: #5680c2;
-
-  /* ── Shadows (minimal — Blender is flat) ── */
-  --shadow:       0 1px 3px rgba(0,0,0,0.3);
+  /* ── Status ── */
+  --be-green:         #2ee87a;
+  --be-orange:        #f97316;
+  --be-red:           #ef4444;
+  --be-yellow:        #facc15;
 
   /* ── Typography ── */
-  --sans:     'Inter', -apple-system, 'Segoe UI', sans-serif;
-  --mono:     'Cascadia Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  --display:  'Inter', -apple-system, 'Segoe UI', sans-serif;
+  --sans:   'Inter', -apple-system, 'Segoe UI', sans-serif;
+  --mono:   'Cascadia Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
 
   font-family: var(--sans);
   line-height: 1.5;
   font-weight: 400;
-  color: var(--text);
-  background: var(--bg-base);
+  color: var(--be-text);
+  background: var(--be-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Keep legacy aliases so existing button/input styles still compile */
+  --bg-darkest:   var(--be-bg);
+  --bg-dark:      var(--be-surface);
+  --bg-base:      var(--be-surface-2);
+  --bg-raised:    var(--be-surface-3);
+  --bg-hover:     var(--be-surface-4);
+  --bg-active:    #2d364e;
+  --text:         var(--be-text);
+  --text-strong:  var(--be-text-strong);
+  --text-muted:   var(--be-text-label);
+  --text-dim:     var(--be-text-dim);
+  --accent:       var(--be-accent);
+  --accent-muted: var(--be-accent-muted);
+  --accent-blue:  var(--be-accent);
+  --accent-blue-muted: var(--be-accent-muted);
+  --border:       var(--be-border);
+  --border-light: var(--be-border-2);
+  --border-focus: var(--be-accent);
+  --mono:         'Cascadia Mono', Consolas, monospace;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-html,
-body,
-#root {
+html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
@@ -62,60 +76,21 @@ body,
 
 body {
   min-width: 320px;
-  color: var(--text);
-  background: var(--bg-base);
+  color: var(--be-text);
+  background: var(--be-bg);
 }
 
-#root {
-  width: 100%;
-}
+#root { width: 100%; }
 
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
+button, input, textarea, select { font: inherit; }
+button { color: inherit; }
+h1, h2, h3 { margin: 0; font-family: var(--sans); color: var(--be-text-strong); font-weight: 600; }
+p { margin: 0; }
+code, pre { font-family: var(--mono); }
 
-button {
-  color: inherit;
-}
+::selection { background: var(--be-accent-muted); color: var(--be-text-strong); }
 
-h1, h2, h3 {
-  margin: 0;
-  font-family: var(--display);
-  color: var(--text-strong);
-  font-weight: 600;
-}
-
-p {
-  margin: 0;
-}
-
-code, pre {
-  font-family: var(--mono);
-}
-
-::selection {
-  background: rgba(237, 91, 0, 0.35);
-  color: var(--text-strong);
-}
-
-/* Custom scrollbar — Blender style */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--bg-dark);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--bg-hover);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--bg-active);
-}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--be-bg); }
+::-webkit-scrollbar-thumb { background: var(--be-border-2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--be-surface-4); }

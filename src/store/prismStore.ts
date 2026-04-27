@@ -1,83 +1,87 @@
 import { create } from 'zustand';
-import { PrismMesh, Face, Edge } from '../types/prism.types';
+import { PrismMesh } from '../types/prism.types';
 import { generatePrismMesh } from '../geometry/prismGeometry';
+import {
+  extrudeFace as doExtrude,
+  bevelEdge as doBevel,
+  deleteFace as doDelete,
+} from '../commands/prismCommands';
 
 interface PrismState {
-    mesh: PrismMesh;
-    selectedFaceId: string | null;
-    faceMode: boolean;
-    history: PrismMesh[];
-    historyIndex: number;
+  mesh: PrismMesh;
+  selectedFaceId: string | null;
+  faceMode: boolean;
+  history: PrismMesh[];
+  historyIndex: number;
 
-    // Actions
-    setMesh: (mesh: PrismMesh) => void;
-    setSelectedFaceId: (id: string | null) => void;
-    setFaceMode: (mode: boolean) => void;
-    extrudeFace: (faceId: string, delta: number) => void;
-    bevelEdge: (edgeId: string, amount: number) => void;
-    deleteFace: (faceId: string) => void;
-    undo: () => void;
-    redo: () => void;
-
-    // Internal helpers (will be implemented in separate command files)
-    _performExtrude: (faceId: string, delta: number) => PrismMesh;
-    _performBevel: (edgeId: string, amount: number) => PrismMesh;
-    _performDeleteFace: (faceId: string) => PrismMesh;
+  // Actions
+  setMesh: (mesh: PrismMesh) => void;
+  setSelectedFaceId: (id: string | null) => void;
+  setFaceMode: (mode: boolean) => void;
+  extrudeFace: (faceId: string, delta: number) => void;
+  bevelEdge: (edgeId: string, amount: number) => void;
+  deleteFace: (faceId: string) => void;
+  undo: () => void;
+  redo: () => void;
 }
 
-// Temporary placeholder functions – will be replaced later
-const placeholderExtrude = (mesh: PrismMesh, faceId: string, delta: number): PrismMesh => {
-    console.warn('Extrude not fully implemented yet');
-    return mesh;
-};
+function pushHistory(
+  mesh: PrismMesh,
+  history: PrismMesh[],
+  historyIndex: number,
+): { newHistory: PrismMesh[]; newIndex: number } {
+  const newHistory = history.slice(0, historyIndex + 1);
+  newHistory.push(mesh);
+  return { newHistory, newIndex: newHistory.length - 1 };
+}
 
 export const usePrismStore = create<PrismState>((set, get) => ({
-    mesh: generatePrismMesh(4, 2, 1), // default 4-sided prism (cube)
-    selectedFaceId: null,
-    faceMode: false,
-    history: [],
-    historyIndex: -1,
+  mesh: generatePrismMesh(4, 2, 1), // default 4-sided prism (cube)
+  selectedFaceId: null,
+  faceMode: false,
+  history: [],
+  historyIndex: -1,
 
-    setMesh: (mesh) => set({ mesh }),
-    setSelectedFaceId: (id) => set({ selectedFaceId: id }),
-    setFaceMode: (mode) => set({ faceMode: mode, selectedFaceId: null }),
+  setMesh: (mesh) => set({ mesh }),
+  setSelectedFaceId: (id) => set({ selectedFaceId: id }),
+  setFaceMode: (mode) => set({ faceMode: mode, selectedFaceId: null }),
 
-    extrudeFace: (faceId, delta) => {
-        const { mesh, history, historyIndex } = get();
-        const newHistory = history.slice(0, historyIndex + 1);
-        newHistory.push(mesh);
-        const newMesh = placeholderExtrude(mesh, faceId, delta);
-        set({ mesh: newMesh, history: newHistory, historyIndex: newHistory.length - 1 });
-    },
+  extrudeFace: (faceId, delta) => {
+    const { mesh, history, historyIndex } = get();
+    const { newHistory, newIndex } = pushHistory(mesh, history, historyIndex);
+    const newMesh = doExtrude(mesh, faceId, delta);
+    set({ mesh: newMesh, history: newHistory, historyIndex: newIndex });
+  },
 
-    bevelEdge: (edgeId, amount) => {
-        // placeholder
-        console.log('Bevel not yet implemented');
-    },
+  bevelEdge: (edgeId, amount) => {
+    const { mesh, history, historyIndex } = get();
+    const { newHistory, newIndex } = pushHistory(mesh, history, historyIndex);
+    const newMesh = doBevel(mesh, edgeId, amount);
+    set({ mesh: newMesh, history: newHistory, historyIndex: newIndex });
+  },
 
-    deleteFace: (faceId) => {
-        // placeholder
-        console.log('Delete face not yet implemented');
-    },
+  deleteFace: (faceId) => {
+    const { mesh, history, historyIndex } = get();
+    const { newHistory, newIndex } = pushHistory(mesh, history, historyIndex);
+    const newMesh = doDelete(mesh, faceId);
+    set({ mesh: newMesh, history: newHistory, historyIndex: newIndex, selectedFaceId: null });
+  },
 
-    undo: () => {
-        const { history, historyIndex, mesh } = get();
-        if (historyIndex > 0) {
-            set({ mesh: history[historyIndex - 1], historyIndex: historyIndex - 1 });
-        } else if (historyIndex === -1 && history.length > 0) {
-            // special case: go to first state
-            set({ mesh: history[0], historyIndex: 0 });
-        }
-    },
+  undo: () => {
+    const { history, historyIndex } = get();
+    // Fix: use >= 0 so index 0 (first saved state) can be restored
+    if (historyIndex >= 0) {
+      set({
+        mesh: history[historyIndex],
+        historyIndex: historyIndex - 1,
+      });
+    }
+  },
 
-    redo: () => {
-        const { history, historyIndex } = get();
-        if (historyIndex < history.length - 1) {
-            set({ mesh: history[historyIndex + 1], historyIndex: historyIndex + 1 });
-        }
-    },
-
-    _performExtrude: placeholderExtrude,
-    _performBevel: (mesh, edgeId, amount) => mesh,
-    _performDeleteFace: (mesh, faceId) => mesh,
+  redo: () => {
+    const { history, historyIndex } = get();
+    if (historyIndex < history.length - 1) {
+      set({ mesh: history[historyIndex + 1], historyIndex: historyIndex + 1 });
+    }
+  },
 }));

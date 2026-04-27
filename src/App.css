@@ -1,286 +1,682 @@
 /* ========================================================================
-   THREE GLUT — Blender-Style Layout & Components
+   THREE GLUT — BuildEditor-Style UI
    ======================================================================== */
 
-/* ─── App Shell: Full-screen Blender layout ─── */
-.app-shell {
+/* ─── Shell ─── */
+.be-shell {
   height: 100vh;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: 42px auto 1fr;
   overflow: hidden;
+  background: var(--be-bg);
+}
+
+/* Hide internal viewport header — we have our own mode bar in App.tsx */
+.be-viewport-wrap .viewport-header {
+  display: none !important;
+}
+
+/* Ensure viewport fills its container */
+.be-viewport-wrap .viewport-shell {
+  height: 100%;
+}
+
+.be-viewport-wrap .panel {
+  height: 100%;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TOP BAR — Slim Blender-style menu bar
+   TOPBAR — tool strip row
    ═══════════════════════════════════════════════════════════════════════════ */
-.topbar {
-  position: relative;
-  z-index: 20;
+.be-topbar {
   display: flex;
   align-items: center;
-  gap: 0;
-  padding: 0;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--bg-dark);
-  backdrop-filter: none;
-  box-shadow: none;
-  height: 38px;
-  min-height: 38px;
+  height: 42px;
+  min-height: 42px;
+  background: var(--be-surface);
+  border-bottom: 1px solid var(--be-border);
+  z-index: 30;
+  overflow: hidden;
 }
 
-.brand-block {
+/* Brand */
+.be-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  min-width: auto;
+  gap: 7px;
+  padding: 0 14px;
   height: 100%;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--be-border);
+  flex-shrink: 0;
+  cursor: default;
+  user-select: none;
 }
 
-.brand-block > div {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.brand-block h1 {
-  margin: 0;
-  font-size: 0.82rem;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.01em;
-  color: var(--text-strong);
-  white-space: nowrap;
-}
-
-.brand-block p {
-  display: none; /* Hide description in Blender style — keep it minimal */
-}
-
-/* Brand eyebrow icon */
-.eyebrow {
+.be-brand-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 3px;
-  background: var(--accent);
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #3ec6a8 0%, #2aa87e 100%);
   color: #fff;
-  font-size: 0.6rem;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: -0.05em;
   flex-shrink: 0;
 }
 
-/* ─── Topbar Action Buttons ─── */
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 1px;
-  height: 100%;
-  padding: 0 2px;
-  flex-wrap: nowrap;
-}
-
-.topbar-actions button {
-  border: none;
-  border-radius: 2px;
-  background: transparent;
-  color: var(--text);
-  padding: 4px 10px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  height: 28px;
-  cursor: pointer;
-  transition: background 120ms ease;
+.be-brand-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--be-text-strong);
+  letter-spacing: -0.01em;
   white-space: nowrap;
 }
 
-.topbar-actions button:hover:not(:disabled) {
-  background: var(--bg-hover);
-  transform: none;
-  border-color: transparent;
+/* Tool Strip */
+.be-tool-strip {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0 6px;
+  height: 100%;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.topbar-actions button:disabled {
+.be-tool {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 3px 10px;
+  height: 36px;
+  min-width: 48px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--be-text-dim);
+  font-size: 0.64rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.be-tool:hover:not(:disabled) {
+  background: var(--be-surface-3);
+  color: var(--be-text);
+}
+
+.be-tool.active {
+  background: var(--be-accent-muted);
+  color: var(--be-accent-text);
+  border-radius: 4px;
+}
+
+.be-tool-icon {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.be-tool-sep {
+  width: 1px;
+  height: 22px;
+  background: var(--be-border-2);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* Topbar right-side buttons */
+.be-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 10px;
+  height: 100%;
+  border-left: 1px solid var(--be-border);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.be-topbar-right button {
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--be-text-label);
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  height: 28px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 100ms ease, color 100ms ease;
+}
+
+.be-topbar-right button:hover:not(:disabled) {
+  background: var(--be-surface-3);
+  color: var(--be-text);
+}
+
+.be-topbar-right button:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODE BAR — edit mode selector row
+   ═══════════════════════════════════════════════════════════════════════════ */
+.be-modebar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 10px;
+  background: var(--be-surface-2);
+  border-bottom: 1px solid var(--be-border);
+  z-index: 20;
+  flex-shrink: 0;
+}
+
+.be-mode-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--be-text-dim);
+  text-transform: uppercase;
+  margin-right: 6px;
+  user-select: none;
+}
+
+.be-mode-btn {
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--be-text-label);
+  padding: 2px 10px;
+  height: 22px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 100ms, color 100ms;
+}
+
+.be-mode-btn:hover {
+  background: var(--be-surface-3);
+  color: var(--be-text);
+}
+
+.be-mode-btn.active {
+  background: var(--be-accent);
+  color: #fff;
+}
+
+.be-selected-label {
+  margin-left: auto;
+  font-size: 0.65rem;
+  color: var(--be-text-dim);
+  user-select: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CONTENT — 3-column layout
+   ═══════════════════════════════════════════════════════════════════════════ */
+.be-content {
+  display: grid;
+  grid-template-columns: 158px 1fr 264px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LEFT PANEL — Primitives + Objects
+   ═══════════════════════════════════════════════════════════════════════════ */
+.be-left-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--be-surface);
+  border-right: 1px solid var(--be-border);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Section */
+.be-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.be-section + .be-section {
+  border-top: 1px solid var(--be-border);
+}
+
+.be-section-header {
+  padding: 8px 12px 4px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--be-text-dim);
+  user-select: none;
+  cursor: default;
+}
+
+/* Primitive list */
+.be-prim-list {
+  list-style: none;
+  margin: 0;
+  padding: 2px 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.be-prim-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--be-text);
+  transition: background 80ms;
+  user-select: none;
+}
+
+.be-prim-item:hover {
+  background: var(--be-surface-3);
+}
+
+.be-prim-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 0.72rem;
+  color: var(--be-text-label);
+  flex-shrink: 0;
+}
+
+/* Objects list */
+.be-obj-list {
+  list-style: none;
+  margin: 0;
+  padding: 2px 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.be-obj-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 6px 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 80ms;
+}
+
+.be-obj-item:hover {
+  background: var(--be-surface-3);
+}
+
+.be-obj-item.active {
+  background: var(--be-accent-muted);
+}
+
+.be-obj-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.be-obj-name {
+  flex: 1;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--be-text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.be-obj-delete {
+  border: none;
+  background: transparent;
+  color: var(--be-text-dim);
+  padding: 0 3px;
+  font-size: 0.9rem;
+  line-height: 1;
+  border-radius: 3px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 80ms, color 80ms;
+}
+
+.be-obj-item:hover .be-obj-delete {
+  opacity: 1;
+}
+
+.be-obj-delete:hover {
+  color: var(--be-red) !important;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VIEWPORT CENTER
+   ═══════════════════════════════════════════════════════════════════════════ */
+.be-viewport-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: #0a0c17;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RIGHT PANEL — Inspector + Export
+   ═══════════════════════════════════════════════════════════════════════════ */
+.be-right-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--be-surface);
+  border-left: 1px solid var(--be-border);
+  overflow: hidden; /* children control their own scroll */
+}
+
+/* Inspector section — scrollable, takes remaining space */
+.be-inspector-section {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-bottom: 1px solid var(--be-border);
+}
+
+.be-inspector-section .be-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 4px;
+}
+
+.be-nothing-label {
+  font-size: 0.62rem;
+  color: var(--be-text-dim);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Inspector empty state */
+.be-inspector-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.be-inspector-empty-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: var(--be-surface-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  opacity: 0.5;
+}
+
+.be-inspector-empty p {
+  font-size: 0.72rem;
+  color: var(--be-text-label);
+  line-height: 1.5;
+}
+
+/* Inspector form */
+.be-inspector-form {
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Export section — shrinks to fit, scrolls if too tall */
+.be-export-section {
+  flex-shrink: 0;
+  max-height: 54%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 12px;
+  border-top: 1px solid var(--be-border);
+}
+
+.be-export-stats {
+  display: flex;
+  gap: 8px;
+  padding: 4px 12px 8px;
+  flex-wrap: wrap;
+}
+
+.be-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.65rem;
+  color: var(--be-text-label);
+}
+
+/* Export buttons */
+.be-btn-primary {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 0 12px 6px;
+  padding: 8px 12px;
+  background: var(--be-accent);
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: background 120ms;
+}
+
+.be-btn-primary:hover:not(:disabled) {
+  background: var(--be-accent-hover);
+}
+
+.be-btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.be-btn-secondary {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 0 12px 4px;
+  padding: 7px 12px;
+  background: var(--be-surface-3);
+  border: 1px solid var(--be-border-2);
+  border-radius: 5px;
+  color: var(--be-text);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: background 100ms;
+}
+
+.be-btn-secondary:hover:not(:disabled) {
+  background: var(--be-surface-4);
+}
+
+.be-btn-secondary:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-.topbar-actions .toggle-active {
-  background: var(--accent-muted);
-  color: var(--text-strong);
-  border-color: transparent;
-}
-
-/* ─── Space Tabs (2D / 3D) in topbar ─── */
-.topbar-actions .segmented {
-  display: flex;
-  align-items: center;
-  gap: 1px;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  margin-right: 6px;
-  border-right: 1px solid var(--border);
-  padding-right: 6px;
-  height: 100%;
-}
-
-.topbar-actions .segmented button {
-  border-radius: 2px;
-  padding: 4px 12px;
-  font-weight: 600;
-  font-size: 0.75rem;
-}
-
-.topbar-actions .segmented .toggle-active {
-  background: var(--accent-blue-muted);
-  color: #8ab4f8;
-}
-
-/* ─── Status Cluster ─── */
-.status-cluster {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-  padding: 0 8px;
-  height: 100%;
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border: none;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-muted);
-  font-size: 0.68rem;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
-   EDITOR LAYOUT — Blender 3-column system
+   INSPECTOR FORM FIELDS — reuse existing field classes
    ═══════════════════════════════════════════════════════════════════════════ */
-.editor-layout {
+.field,
+.field-number {
   display: grid;
-  grid-template-columns: 260px 1fr 290px;
-  gap: 0;
-  align-items: stretch;
-  overflow: hidden;
-  min-height: 0;
+  gap: 3px;
+  margin-bottom: 4px;
 }
 
-/* ─── Sidebar (Left — Outliner) ─── */
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  border-right: 1px solid var(--border);
-  background: var(--bg-dark);
+.field > span,
+.field-number > span {
+  color: var(--be-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.58rem;
+  font-weight: 600;
 }
 
-/* ─── Viewport Panel (Center) ─── */
-.viewport-panel {
+.field input,
+.field textarea,
+.field select,
+.field-number input {
+  width: 100%;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  border: 1px solid var(--be-border-2);
+  border-radius: 4px;
+  background: var(--be-bg);
+  color: var(--be-text-strong);
+  padding: 4px 7px;
+  font-size: 0.72rem;
+  outline: none;
+  height: 26px;
+  transition: border-color 100ms;
+}
+
+.field input:focus,
+.field-number input:focus {
+  border-color: var(--be-accent);
+}
+
+.field input[type="color"] {
+  padding: 2px;
+  height: 26px;
+  cursor: pointer;
+}
+
+.field-number input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+}
+
+.vector-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PANELS — Blender flat panel style
+   COMPONENT LIST (face/edge selectors)
    ═══════════════════════════════════════════════════════════════════════════ */
-.panel {
+.component-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.component-list button {
+  padding: 3px 5px;
+  font-size: 0.62rem;
+  border-radius: 3px;
+  background: var(--be-surface-3);
+  border: 1px solid var(--be-border-2);
+  color: var(--be-text);
+  cursor: pointer;
+  transition: background 80ms;
+  text-align: left;
+}
+
+.component-list button:hover { background: var(--be-surface-4); }
+.component-list .toggle-active { background: var(--be-accent-muted); border-color: var(--be-accent); color: var(--be-accent-text); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CODE PANEL — below export buttons
+   ═══════════════════════════════════════════════════════════════════════════ */
+.be-code-section {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.be-code-scope {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--be-bg);
+  border: 1px solid var(--be-border-2);
+  border-radius: 4px;
+}
+
+.be-code-scope button {
+  flex: 1;
   border: none;
-  background: var(--bg-dark);
-  box-shadow: none;
-  backdrop-filter: none;
-  border-radius: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--be-text-label);
+  padding: 3px 6px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 80ms;
 }
 
-.sidebar-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 0;
-  border-radius: 0;
-  border-bottom: 1px solid var(--border);
+.be-code-scope button:hover { background: var(--be-surface-3); color: var(--be-text); }
+.be-code-scope .toggle-active { background: var(--be-accent-muted); color: var(--be-accent-text); }
+
+.be-code-block {
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--be-border-2);
+  border-radius: 4px;
+  background: var(--be-bg);
+  color: #90b8dc;
+  max-height: 180px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  line-height: 1.5;
+  white-space: pre;
 }
 
-.sidebar-panel > *:not(.panel-header) {
-  padding: 0 10px;
-}
-
-.sidebar-panel > *:last-child {
-  padding-bottom: 10px;
-}
-
+/* ═══════════════════════════════════════════════════════════════════════════
+   VIEWPORT INTERNALS (reused by Viewport.tsx)
+   ═══════════════════════════════════════════════════════════════════════════ */
 .viewport-shell {
-  width: 100%;
-  max-width: none;
   display: flex;
   flex-direction: column;
-  gap: 0;
-  padding: 0;
-  border-radius: 0;
   flex: 1;
   min-height: 0;
-}
-
-/* ─── Panel Header — Blender section header ─── */
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 10px;
-  background: var(--bg-base);
-  border-bottom: 1px solid var(--border);
-  cursor: default;
-  user-select: none;
-  min-height: 32px;
-}
-
-.panel-header.compact {
-  align-items: center;
-}
-
-.panel h2 {
-  margin: 0;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: uppercase;
-  color: var(--text);
-}
-
-.panel-kicker {
-  display: none; /* Hide kickers — Blender doesn't use them */
-}
-
-.status-line {
-  color: var(--text-muted);
-  font-size: 0.68rem;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   VIEWPORT — Blender 3D viewport style
-   ═══════════════════════════════════════════════════════════════════════════ */
-.viewport-copy {
-  display: none;
 }
 
 .viewport-header {
@@ -288,9 +684,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 2px 6px;
-  background: var(--bg-base);
-  border-bottom: 1px solid var(--border);
-  min-height: 30px;
+  background: var(--be-surface);
+  border-bottom: 1px solid var(--be-border);
+  min-height: 28px;
   flex-shrink: 0;
 }
 
@@ -298,77 +694,30 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  flex-wrap: nowrap;
 }
 
 .viewport-toolbar button {
   border: none;
-  border-radius: 2px;
+  border-radius: 3px;
   background: transparent;
   padding: 3px 8px;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 500;
-  color: var(--text-muted);
-  height: 24px;
+  color: var(--be-text-label);
+  height: 22px;
+  cursor: pointer;
+  transition: background 80ms;
 }
 
-.viewport-toolbar button:hover:not(:disabled) {
-  background: var(--bg-hover);
-  transform: none;
-}
+.viewport-toolbar button:hover:not(:disabled) { background: var(--be-surface-3); color: var(--be-text); }
+.viewport-toolbar .toggle-active { background: var(--be-accent-muted); color: var(--be-accent-text); }
 
-.viewport-toolbar .toggle-active {
-  background: var(--accent-blue-muted);
-  color: #8ab4f8;
-}
-
-/* Segmented inside panels */
-.segmented {
-  display: flex;
-  align-items: center;
-  gap: 1px;
-  padding: 2px;
-  border: 1px solid var(--border-light);
-  border-radius: 3px;
-  background: var(--bg-darkest);
-}
-
-.segmented button {
-  border: 0;
-  border-radius: 2px;
-  background: transparent;
-  padding: 3px 10px;
-  box-shadow: none;
-  font-size: 0.7rem;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.segmented button:hover:not(:disabled) {
-  background: var(--bg-hover);
-  transform: none;
-}
-
-.segmented .toggle-active {
-  background: var(--accent-blue-muted);
-  color: #8ab4f8;
-}
-
-/* ─── Viewport Stage ─── */
 .viewport-stage {
   position: relative;
   flex: 1;
   min-height: 0;
-  border: none;
-  border-radius: 0;
   overflow: hidden;
-  background: #252525;
-  box-shadow: none;
-}
-
-.viewport-stage-frame {
-  width: 100%;
-  height: 100%;
+  background: #090c16;
 }
 
 .viewport-stage canvas,
@@ -378,439 +727,137 @@
   height: 100% !important;
 }
 
-.viewport-svg {
-  touch-action: none;
-  user-select: none;
-}
+.viewport-svg { touch-action: none; user-select: none; }
 
 .viewport-loading {
   width: 100%;
   height: 100%;
   display: grid;
   place-items: center;
-  color: var(--text-muted);
-  font-size: 0.82rem;
+  color: var(--be-text-label);
+  font-size: 0.8rem;
 }
 
-/* ─── Viewport bottom hint bar ─── */
 .viewport-hint {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
-  background: var(--bg-dark);
-  border-top: 1px solid var(--border);
-  min-height: 26px;
+  padding: 2px 8px;
+  background: var(--be-surface);
+  border-top: 1px solid var(--be-border);
+  min-height: 24px;
   flex-shrink: 0;
 }
 
 .viewport-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 1px 6px;
-  border: none;
+  gap: 3px;
+  padding: 1px 5px;
   border-radius: 2px;
   background: transparent;
-  color: var(--text-dim);
-  font-size: 0.65rem;
-  font-weight: 500;
+  color: var(--be-text-dim);
+  font-size: 0.62rem;
 }
 
+.segmented {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--be-border-2);
+  border-radius: 4px;
+  background: var(--be-bg);
+}
+
+.segmented button {
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  padding: 3px 10px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--be-text-label);
+  cursor: pointer;
+  transition: background 80ms;
+}
+
+.segmented button:hover:not(:disabled) { background: var(--be-surface-3); color: var(--be-text); }
+.segmented .toggle-active { background: var(--be-accent-muted); color: var(--be-accent-text); }
+
+.viewport-copy { display: none; }
+
 /* ═══════════════════════════════════════════════════════════════════════════
-   BUTTONS — Blender flat button style
+   GENERIC BUTTONS (kept for ContextMenu etc.)
    ═══════════════════════════════════════════════════════════════════════════ */
 button {
-  border: 1px solid var(--border-light);
-  background: var(--bg-raised);
-  color: var(--text);
-  border-radius: 3px;
+  border: 1px solid var(--be-border-2);
+  background: var(--be-surface-3);
+  color: var(--be-text);
+  border-radius: 4px;
   padding: 4px 10px;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 500;
-  transition: background 100ms ease;
+  transition: background 100ms;
   line-height: 1.4;
 }
 
-button:hover:not(:disabled) {
-  transform: none;
-  background: var(--bg-hover);
-  border-color: var(--border-light);
-}
-
-button:active:not(:disabled) {
-  background: var(--bg-active);
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.35;
-}
+button:hover:not(:disabled) { background: var(--be-surface-4); border-color: var(--be-border-2); }
+button:active:not(:disabled) { background: #2d364e; }
+button:disabled { cursor: not-allowed; opacity: 0.32; }
 
 .toggle-active {
-  border-color: var(--accent);
-  background: var(--accent-muted);
-  color: var(--text-strong);
+  border-color: var(--be-accent);
+  background: var(--be-accent-muted);
+  color: var(--be-accent-text);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   FORM CONTROLS — Blender property editor style
+   SCENE-ROW (retained inside left panel objects list for rename support)
    ═══════════════════════════════════════════════════════════════════════════ */
-.search-field,
-.field,
-.field-number {
-  display: grid;
-  gap: 4px;
-  margin-bottom: 6px;
-}
-
-.field > span,
-.field-number > span {
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.62rem;
-  font-weight: 600;
-}
-
-.field input,
-.field textarea,
-.field select,
-.field-number input,
-.search-field input,
-.scene-meta input {
-  width: 100%;
-  min-width: 0;
-  border: 1px solid var(--border-light);
-  border-radius: 3px;
-  background: var(--bg-darkest);
-  color: var(--text-strong);
-  padding: 4px 8px;
-  font-size: 0.75rem;
-  outline: none;
-  height: 26px;
-}
-
-.field input:focus,
-.field textarea:focus,
-.field select:focus,
-.field-number input:focus,
-.search-field input:focus,
-.scene-meta input:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 1px rgba(86, 128, 194, 0.2);
-}
-
-.field-number input {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  font-family: var(--mono);
-  font-size: 0.72rem;
-}
-
-.field input[type="color"] {
-  padding: 2px;
-  height: 26px;
-  cursor: pointer;
-}
-
-/* ─── Vector Group (Position / Rotation / Scale) ─── */
-.vector-group {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   TOOL GRID — Blender Add menu style
-   ═══════════════════════════════════════════════════════════════════════════ */
-.tool-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 3px;
-  padding-top: 6px;
-  padding-bottom: 6px;
-}
-
-.tool-card {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  text-align: left;
-  min-height: auto;
-  padding: 5px 8px;
-  border-radius: 3px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border-light);
-}
-
-.tool-card:hover {
-  background: var(--bg-hover);
-}
-
-.tool-card strong {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--text-strong);
-}
-
-.tool-card small {
-  font-size: 0.62rem;
-  color: var(--text-dim);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   SCENE LIST — Blender Outliner style
-   ═══════════════════════════════════════════════════════════════════════════ */
-.scene-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding-top: 4px;
-  padding-bottom: 4px;
-}
-
-.scene-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 4px;
-  align-items: center;
-  padding: 3px 4px;
-  border: 1px solid transparent;
-  border-radius: 2px;
-  background: transparent;
-  cursor: pointer;
-  transition: background 80ms ease;
-}
-
-.scene-row:hover {
-  background: var(--bg-raised);
-}
-
-.scene-row.active {
-  border-color: var(--accent);
-  background: var(--accent-muted);
-}
-
-.scene-row-main {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  cursor: pointer;
-}
-
-.scene-index {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  padding: 1px 4px;
-  border-radius: 2px;
-  background: var(--bg-darkest);
-  color: var(--text-dim);
-  font-family: var(--mono);
-  font-size: 0.6rem;
-  font-weight: 600;
-}
-
-.scene-meta {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
 .scene-meta input {
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
-  font-weight: 600;
-  font-size: 0.72rem;
-  color: var(--text-strong);
+  font-weight: 500;
+  font-size: 0.74rem;
+  color: var(--be-text-strong);
   height: auto;
+  width: 100%;
+  outline: none;
 }
 
-.scene-meta input:focus {
-  box-shadow: none;
-  border: none;
+.scene-meta input:focus { box-shadow: none; border: none; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CONTEXT MENU
+   ═══════════════════════════════════════════════════════════════════════════ */
+.context-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--be-surface-2);
+  border: 1px solid var(--be-border-2);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  min-width: 160px;
 }
 
-.scene-meta small {
+.context-menu button {
   display: block;
-  font-size: 0.62rem;
-  line-height: 1.2;
-  color: var(--text-dim);
-}
-
-/* ─── Scene Row Buttons ─── */
-.scene-icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: auto;
-  height: 20px;
-  padding: 0 5px;
-  border-radius: 2px;
-  font-size: 0.6rem;
-  font-weight: 700;
+  width: 100%;
+  text-align: left;
   border: none;
   background: transparent;
-}
-
-.scene-icon-button:hover {
-  background: var(--bg-hover);
-}
-
-.scene-delete {
-  color: #e06060;
-}
-
-.scene-duplicate {
-  color: #6ba3e8;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   EMPTY STATE
-   ═══════════════════════════════════════════════════════════════════════════ */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px;
-  border: 1px dashed var(--border-light);
+  padding: 6px 10px;
+  font-size: 0.72rem;
   border-radius: 3px;
-  background: var(--bg-darkest);
-  font-size: 0.72rem;
+  color: var(--be-text);
 }
 
-.empty-state strong {
-  color: var(--text);
-  font-size: 0.72rem;
-}
-
-.empty-state span {
-  color: var(--text-dim);
-  font-size: 0.65rem;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   INSPECTOR FORM — Blender Properties Panel
-   ═══════════════════════════════════════════════════════════════════════════ */
-.inspector-form {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-top: 8px;
-}
-
-/* ─── Component List (Face/Edge selectors) ─── */
-.component-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 2px;
-  max-height: 200px;
-  overflow: auto;
-  padding-right: 2px;
-}
-
-.component-list button {
-  padding: 3px 6px;
-  font-size: 0.68rem;
-  border-radius: 2px;
-}
-
-/* ─── Shortcut Grid ─── */
-.shortcut-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 3px;
-  padding-top: 6px;
-}
-
-.shortcut-grid div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: 2px;
-  background: var(--bg-darkest);
-}
-
-.shortcut-grid strong {
-  color: var(--text-muted);
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  background: var(--bg-raised);
-  padding: 1px 4px;
-  border-radius: 2px;
-}
-
-.shortcut-grid span {
-  color: var(--text-dim);
-  font-size: 0.62rem;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   CODE PANEL — Blender-style collapsible bottom section
-   ═══════════════════════════════════════════════════════════════════════════ */
-.code-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-dark);
-}
-
-.code-panel.closed {
-  display: none;
-}
-
-.code-block {
-  margin: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 2px;
-  background: var(--bg-darkest);
-  color: #b8c8dc;
-  max-height: 220px;
-  overflow: auto;
-  font-family: var(--mono);
-  font-size: 0.68rem;
-  line-height: 1.5;
-  white-space: pre;
-}
-
-.button-row {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  flex-wrap: wrap;
-}
-
-.button-row button {
-  flex: 1 1 0;
-  font-size: 0.68rem;
-  padding: 4px 6px;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   RIGHT PANEL — Properties area (Inspector + Code)
-   ═══════════════════════════════════════════════════════════════════════════ */
-.right-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  border-left: 1px solid var(--border);
-  background: var(--bg-dark);
-}
+.context-menu button:hover { background: var(--be-surface-3); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    VISUALLY HIDDEN
@@ -828,262 +875,79 @@ button:disabled {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PANEL TOGGLES
+   SHORTCUT GRID
    ═══════════════════════════════════════════════════════════════════════════ */
-.panel-toggles {
-  display: flex;
-  gap: 2px;
-  padding: 4px;
+.shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+  margin-top: 6px;
 }
 
-.panel-toggles button {
-  flex: 1;
-  padding: 3px;
-  font-size: 0.65rem;
-  background: var(--bg-raised);
-  border: 1px solid var(--border-light);
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 2px;
-  transition: all 100ms;
-}
-
-.panel-toggles button:hover {
-  background: var(--bg-hover);
-}
-
-.panel-toggles button.active {
-  background: var(--accent-blue-muted);
-  border-color: var(--accent-blue);
-  color: #8ab4f8;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ROTATION CONTROLS
-   ═══════════════════════════════════════════════════════════════════════════ */
-.rotation-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 4px 0;
-  padding: 6px;
-  background: var(--bg-darkest);
-  border-radius: 2px;
-  border: 1px solid var(--border);
-}
-
-.rotation-controls label {
+.shortcut-grid div {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.68rem;
-  color: var(--text-muted);
-}
-
-.rotation-controls input[type="number"] {
-  width: 56px;
-  padding: 2px 4px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border-light);
-  color: var(--text-strong);
-  border-radius: 2px;
-  font-size: 0.68rem;
-  font-family: var(--mono);
-}
-
-.rotation-controls input[type="number"]:focus {
-  outline: none;
-  border-color: var(--border-focus);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   COLLAPSED PANEL STYLES
-   ═══════════════════════════════════════════════════════════════════════════ */
-.sidebar-panel.collapsed {
-  display: none;
-}
-
-.sidebar-panel .panel-header {
-  display: flex;
   justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
+  gap: 4px;
+  padding: 4px 7px;
+  border: 1px solid var(--be-border);
+  border-radius: 3px;
+  background: var(--be-bg);
 }
 
-.sidebar-panel .panel-header h2 {
-  margin: 0;
-  font-size: 0.72rem;
-}
-
-.sidebar-panel .collapse-toggle {
-  background: none;
-  border: none;
-  color: var(--text-dim);
-  cursor: pointer;
-  font-size: 0.8rem;
-  padding: 2px;
-}
-
-.sidebar-panel .collapse-toggle:hover {
-  color: var(--text-strong);
-}
-
-.panel.minimized {
-  height: auto;
-  max-height: 32px;
-  overflow: hidden;
-}
-
-.panel.minimized .panel-content {
-  display: none;
-}
-
-.panel.minimized .panel-header {
-  margin-bottom: 0;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   RESPONSIVE — Collapse to single column on small screens
-   ═══════════════════════════════════════════════════════════════════════════ */
-@media (max-width: 1100px) {
-  .app-shell {
-    overflow-y: auto;
-  }
-
-  .editor-layout {
-    grid-template-columns: 1fr;
-    overflow: visible;
-  }
-
-  .sidebar {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    max-height: 280px;
-  }
-
-  .right-panel {
-    border-left: none;
-    border-top: 1px solid var(--border);
-    max-height: 320px;
-  }
-
-  .viewport-stage {
-    min-height: 400px;
-  }
-}
-
-@media (max-width: 760px) {
-  .topbar {
-    height: auto;
-    min-height: 36px;
-    flex-wrap: wrap;
-    padding: 4px;
-  }
-
-  .brand-block {
-    border-right: none;
-    padding: 4px 8px;
-  }
-
-  .topbar-actions {
-    flex-wrap: wrap;
-    padding: 2px;
-  }
-
-  .status-cluster {
-    width: 100%;
-    padding: 2px 4px;
-  }
-
-  .sidebar {
-    max-height: 200px;
-  }
-
-  .right-panel {
-    max-height: 250px;
-  }
-
-  .tool-grid,
-  .vector-group,
-  .component-list,
-  .shortcut-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   CONTEXT MENU — Blender-style right-click popup
-   ═══════════════════════════════════════════════════════════════════════════ */
-.context-menu {
-  position: fixed;
-  z-index: 1000;
-  min-width: 180px;
-  padding: 4px;
-  background: var(--bg-dark);
-  border: 1px solid var(--border-light);
-  border-radius: 4px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.context-menu button {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 5px 8px;
-  border: none;
+.shortcut-grid strong {
+  color: var(--be-text-label);
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  background: var(--be-surface-3);
+  padding: 1px 4px;
   border-radius: 2px;
-  background: transparent;
-  color: var(--text);
-  font-size: 0.72rem;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
 }
 
-.context-menu button:hover {
-  background: var(--accent-blue-muted);
-  color: #8ab4f8;
-  transform: none;
+.shortcut-grid span { color: var(--be-text-dim); font-size: 0.6rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATUS BAR — hidden when empty, appended inside topbar-right
+   ═══════════════════════════════════════════════════════════════════════════ */
+.be-status-bar {
+  display: none; /* status is shown in modebar selected-label instead */
 }
 
-.context-menu .ctx-danger:hover {
-  background: rgba(224, 96, 96, 0.2);
-  color: #e06060;
-}
-
-.ctx-icon {
+.be-status-pill {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 16px;
-  font-size: 0.72rem;
-  color: var(--text-muted);
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--be-text-dim);
+  font-size: 0.62rem;
 }
 
-.ctx-shortcut {
-  margin-left: auto;
-  font-size: 0.6rem;
-  color: var(--text-dim);
-  font-family: var(--mono);
+/* ═══════════════════════════════════════════════════════════════════════════
+   HOLES (beta section in inspector)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.be-holes-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 4px;
 }
 
-.ctx-separator {
-  height: 1px;
-  margin: 2px 4px;
-  background: var(--border);
-}
-
-.measure-tooltip-corner {
-  background: transparent;
-  color: #8ab4f8;
+.be-holes-row select,
+.be-holes-row input {
+  background: var(--be-bg);
+  border: 1px solid var(--be-border-2);
+  color: var(--be-text);
+  border-radius: 3px;
   padding: 2px 4px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  white-space: nowrap;
-  pointer-events: none;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  font-size: 0.68rem;
+}
+
+.be-holes-row button {
+  padding: 2px 6px;
+  font-size: 0.6rem;
+  color: var(--be-red);
+  background: transparent;
+  border-color: transparent;
 }

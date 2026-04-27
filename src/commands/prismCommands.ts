@@ -82,6 +82,7 @@ export function deleteFace(mesh: PrismMesh, faceId: string): PrismMesh {
 }
 
 function computeNormal(verts: Vertex[]): Vertex {
+  if (verts.length < 3) return { x: 0, y: 1, z: 0 };
   const a = verts[0], b = verts[1], c = verts[2];
   const ab = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
   const ac = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
