@@ -1,4 +1,5 @@
 export type Space = '2d' | '3d'
+import { PrismMesh } from './types/prism.types';
 
 export type PrimitiveKind =
   | 'line'
@@ -76,6 +77,12 @@ export interface SceneObject {
   facePulls: Partial<Record<CubeFaceKey, number>>
   edgePulls: Partial<Record<CubeEdgeKey, number>>
   holes: HoleData[]
+  prismMesh?: PrismMesh;      // custom mesh after editing
+  prismParams?: {             // parameters for regeneration
+    sides: number;
+    radius: number;
+    height: number;
+  };
 }
 
 export interface SceneDocument {

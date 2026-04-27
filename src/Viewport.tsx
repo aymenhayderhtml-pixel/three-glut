@@ -83,6 +83,7 @@ type ViewportProps = {
     end: [number, number, number],
   ) => void
   onStatusChange?: (status: string) => void
+  onUpdateObject: (id: string, changes: Partial<SceneObject>) => void
   lastMeasuredId: string | null
 }
 
@@ -90,20 +91,20 @@ type TwoDDrawTool = Extract<TwoDTool, 'line' | 'rect' | 'circle'>
 
 type TwoDInteraction =
   | {
-      kind: 'draw'
-      tool: TwoDDrawTool
-      pointerId: number
-      start: [number, number, number]
-      current: [number, number, number]
-      snap: boolean
-    }
+    kind: 'draw'
+    tool: TwoDDrawTool
+    pointerId: number
+    start: [number, number, number]
+    current: [number, number, number]
+    snap: boolean
+  }
   | {
-      kind: 'grab'
-      pointerId: number
-      objectId: string
-      startPointer: [number, number, number]
-      startPosition: [number, number, number]
-    }
+    kind: 'grab'
+    pointerId: number
+    objectId: string
+    startPointer: [number, number, number]
+    startPosition: [number, number, number]
+  }
 
 function roundTo(value: number, digits = 2) {
   return Number(value.toFixed(digits))
@@ -281,6 +282,7 @@ export function Viewport({
   onUpdateCubeEdgePull,
   onCreate2DObject,
   onStatusChange,
+  onUpdateObject,
   lastMeasuredId,
 }: ViewportProps) {
   const selectedObject =
@@ -310,32 +312,32 @@ export function Viewport({
         <div className="viewport-toolbar">
           {space === '2d'
             ? (['select', 'measure', 'line', 'rect', 'circle'] as const).map((tool) => (
-                <button
-                  key={tool}
-                  type="button"
-                  className={active2DTool === tool ? 'toggle-active' : ''}
-                  onClick={() => on2DToolChange(tool)}
-                >
-                  {TWO_D_TOOL_LABELS[tool]}
-                </button>
-              ))
+              <button
+                key={tool}
+                type="button"
+                className={active2DTool === tool ? 'toggle-active' : ''}
+                onClick={() => on2DToolChange(tool)}
+              >
+                {TWO_D_TOOL_LABELS[tool]}
+              </button>
+            ))
             : (['object', 'face', 'edge', 'measure'] as const).map((mode) => {
-                const disabled =
-                  (mode === 'face' || mode === 'edge') &&
-                  (!selectedObject || (selectedObject.kind !== 'cube' && selectedObject.kind !== 'prism'))
+              const disabled =
+                (mode === 'face' || mode === 'edge') &&
+                (!selectedObject || (selectedObject.kind !== 'cube' && selectedObject.kind !== 'prism'))
 
-                return (
-                  <button
-                    key={mode}
-                    type="button"
-                    className={threeDEditMode === mode ? 'toggle-active' : ''}
-                    disabled={disabled}
-                    onClick={() => onThreeDEditModeChange(mode)}
-                  >
-                    {THREE_D_EDIT_MODE_LABELS[mode]}
-                  </button>
-                )
-              })}
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  className={threeDEditMode === mode ? 'toggle-active' : ''}
+                  disabled={disabled}
+                  onClick={() => onThreeDEditModeChange(mode)}
+                >
+                  {THREE_D_EDIT_MODE_LABELS[mode]}
+                </button>
+              )
+            })}
         </div>
       </div>
 
@@ -381,6 +383,7 @@ export function Viewport({
               onMoveObject={onMoveObject}
               onUpdateCubeFacePull={onUpdateCubeFacePull}
               onUpdateCubeEdgePull={onUpdateCubeEdgePull}
+              onUpdateObject={onUpdateObject}
               onStatusChange={onStatusChange}
               lastMeasuredId={lastMeasuredId}
             />
@@ -810,11 +813,11 @@ function TwoDViewport({
                     {vertices.map((vertex, index) => {
                       const lx = vertex[0] * o.scale[0]
                       const ly = vertex[1] * o.scale[1]
-                      
+
                       // Format to 1 decimal
                       const formatCoord = (v: number) => Number(v.toFixed(1))
                       const text = `(${formatCoord(lx)}, ${formatCoord(ly)})`
-                      
+
                       return (
                         <g key={`vertex-${index}`}>
                           <circle cx={o.position[0] + lx} cy={-o.position[1] - ly} r={0.08} fill="#8ab4f8" />

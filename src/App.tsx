@@ -9,6 +9,8 @@ import {
 } from 'react'
 import './App.css'
 import { exportGlutProgram } from './exportGlut'
+import { PrismProperties } from './ui/PrismProperties'
+import { PrismToolbar } from './ui/PrismToolbar'
 import { Viewport } from './Viewport'
 import { ContextMenu, type ContextMenuAction, type ContextMenuState } from './components/ContextMenu'
 import {
@@ -1242,6 +1244,13 @@ function App() {
                 if (activeSelectionId) setLastMeasuredId(activeSelectionId)
               }
             }}
+            onUpdateObject={(id, changes) => {
+              commitSceneChange(() => {
+                updateSceneObjects(activeSpace, (current) =>
+                  current.map((obj) => (obj.id === id ? { ...obj, ...changes } : obj)),
+                )
+              })
+            }}
             lastMeasuredId={lastMeasuredId}
           />
         </section>
@@ -1655,6 +1664,13 @@ function App() {
                     ) : null}
                   </>
                 ) : null}
+
+                {selectedObject && selectedObject.kind === 'prism' && (
+                  <>
+                    <PrismProperties />
+                    <PrismToolbar />
+                  </>
+                )}
 
                 {/* Holes (Beta) */}
                 {selectedObject.space === '3d' && (

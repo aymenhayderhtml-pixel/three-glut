@@ -1,5 +1,7 @@
 import { computeCubeExtents, type SceneObject, type Space } from './scene'
 
+import { exportPrismToGlut } from './exportGlutExtended';
+
 const toF = (v: number) => v.toFixed(3) + 'f'
 
 const sanitizeName = (name: string, fallback: string) => {
@@ -11,96 +13,90 @@ const sanitizeName = (name: string, fallback: string) => {
  * Emit 3D draw calls that match exactly how Viewport3D.tsx renders each shape.
  *
  * Viewport3D already applies position/rotation/scale on the outer <group>,
- * so these functions only emit the intrinsic geometry — the part inside the group.
+ * so these functions only emit the intrinsic geometry --- the part inside the group.
  */
 function emit3DObject(lines: string[], object: SceneObject) {
   switch (object.kind) {
     case 'cube': {
-      // Viewport3D: <boxGeometry args={cubeSize} /> at position={cubeOffset}
-      const ext = computeCubeExtents(object)
-      const sx = ext.xNeg + ext.xPos
-      const sy = ext.yNeg + ext.yPos
-      const sz = ext.zNeg + ext.zPos
-      const cx = (ext.xPos - ext.xNeg) / 2
-      const cy = (ext.yPos - ext.yNeg) / 2
-      const cz = (ext.zPos - ext.zNeg) / 2
-      // Offset + scaled unit cube
-      if (Math.abs(cx) > 0.001 || Math.abs(cy) > 0.001 || Math.abs(cz) > 0.001) {
-        lines.push(`  glTranslatef(${toF(cx)}, ${toF(cy)}, ${toF(cz)});`)
+      const ext = computeCubeExtents(object);
+      const sx = ext.xPos + ext.xNeg;
+      const sy = ext.yPos + ext.yNeg;
+      const sz = ext.zPos + ext.zNeg;
+      const cx = (ext.xPos - ext.xNeg) / 2;
+      const cz = (ext.zPos - ext.zNeg) / 2;
+      
+      if (Math.abs(cx) > 0.001 || Math.abs(cz) > 0.001) {
+        lines.push(`  glTranslatef(${toF(cx)}, 0.0f, ${toF(cz)});`);
       }
+      
       lines.push(`  glScalef(${toF(sx)}, ${toF(sy)}, ${toF(sz)});`)
       lines.push(`  glutSolidCube(1.0);`)
       break
     }
-    case 'sphere':
-      // Viewport3D: <sphereGeometry args={[radius, segments, segments*0.75]} />
+    case 'sphere': {
       lines.push(`  glutSolidSphere(${toF(object.radius)}, ${object.segments}, ${Math.round(object.segments * 0.75)});`)
       break
-    case 'cone':
-      // Viewport3D: <coneGeometry args={[radius, height, segments]} />
-      // Note: Three.js cone is centered, GLUT cone base is at origin pointing up +Y
-      // We translate down by half height so the center matches
-      lines.push(`  glTranslatef(0.0f, ${toF(-object.height / 2)}, 0.0f);`)
+    }
+    case 'cone': {
       lines.push(`  glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);`)
       lines.push(`  glutSolidCone(${toF(object.radius)}, ${toF(object.height)}, ${object.segments}, 1);`)
       break
-    case 'torus':
-      // Viewport3D: <torusGeometry args={[outerRadius, innerRadius, sides, segments]} />
+    }
+    case 'torus': {
       lines.push(`  glutSolidTorus(${toF(object.innerRadius)}, ${toF(object.outerRadius)}, ${object.sides}, ${object.segments});`)
       break
-    case 'teapot':
+    }
+    case 'teapot': {
       lines.push(`  glutSolidTeapot(1.0);`)
       break
+    }
     case 'ground':
       // Viewport3D: <boxGeometry args={[width, height, depth]} />
       lines.push(`  glScalef(${toF(object.width)}, ${toF(object.height)}, ${toF(object.depth)});`)
       lines.push(`  glutSolidCube(1.0);`)
       break
     case 'prism': {
-      // Viewport3D: <cylinderGeometry args={[radius, radius, height, 3, 1]} />
-      // A 3-sided cylinder = triangular prism centered at origin
-      const r = object.radius
-      const hh = object.height / 2
-      // 3 vertices around Y axis at angles 90°, 210°, 330° (Three.js default)
-      const v: [number, number][] = []
-      for (let i = 0; i < 3; i++) {
-        const angle = (Math.PI / 2) + (i * 2 * Math.PI / 3)
-        v.push([r * Math.cos(angle), r * Math.sin(angle)])
+      if ((object as any).prismMesh) {
+        const mesh = (object as any).prismMesh;
+        const customFunc = exportPrismToGlut(mesh, `prism_${object.id}`);
+        // Accumulate custom definitions in a global array
+        if (!(window as any).__customPrismDefs) (window as any).__customPrismDefs = [];
+        (window as any).__customPrismDefs.push(customFunc);
+        lines.push(`  drawPrism_${object.id}();`);
+      } else {
+        // Fallback triangular prism (3 sides) --- centered origin
+        const r = object.radius;
+        const hh = object.height / 2;
+        const pts: [number, number][] = [];
+        for (let i = 0; i < 3; i++) {
+          const angle = (Math.PI / 2) + (i * 2 * Math.PI / 3);
+          pts.push([r * Math.cos(angle), r * Math.sin(angle)]);
+        }
+        lines.push(`  // Triangular prism (centered)`);
+        lines.push(`  glBegin(GL_TRIANGLES);`);
+        lines.push(`  glNormal3f(0.0, 1.0, 0.0);`);
+        for (const [x, z] of pts) lines.push(`  glVertex3f(${toF(x)}, ${toF(hh)}, ${toF(z)});`);
+        lines.push(`  glEnd();`);
+        lines.push(`  glBegin(GL_TRIANGLES);`);
+        lines.push(`  glNormal3f(0.0, -1.0, 0.0);`);
+        for (let i = 2; i >= 0; i--) lines.push(`  glVertex3f(${toF(pts[i][0])}, ${toF(-hh)}, ${toF(pts[i][1])});`);
+        lines.push(`  glEnd();`);
+        lines.push(`  glBegin(GL_QUADS);`);
+        for (let i = 0; i < 3; i++) {
+          const j = (i + 1) % 3;
+          const [x1, z1] = pts[i], [x2, z2] = pts[j];
+          const dx = x2 - x1, dz = z2 - z1;
+          const len = Math.hypot(dx, dz);
+          const nx = dz / len, nz = -dx / len;
+          lines.push(`  glNormal3f(${toF(nx)}, 0.0, ${toF(nz)});`);
+          lines.push(`  glVertex3f(${toF(x1)}, ${toF(-hh)}, ${toF(z1)});`);
+          lines.push(`  glVertex3f(${toF(x2)}, ${toF(-hh)}, ${toF(z2)});`);
+          lines.push(`  glVertex3f(${toF(x2)}, ${toF(hh)}, ${toF(z2)});`);
+          lines.push(`  glVertex3f(${toF(x1)}, ${toF(hh)}, ${toF(z1)});`);
+        }
+        lines.push(`  glEnd();`);
       }
-
-      lines.push(`  // Triangular Prism (3-sided cylinder)`)
-      // Top face
-      lines.push(`  glBegin(GL_TRIANGLES);`)
-      lines.push(`  glNormal3f(0.0f, 1.0f, 0.0f);`)
-      for (const [vx, vz] of v) {
-        lines.push(`  glVertex3f(${toF(vx)}, ${toF(hh)}, ${toF(vz)});`)
-      }
-      lines.push(`  glEnd();`)
-      // Bottom face (reversed winding)
-      lines.push(`  glBegin(GL_TRIANGLES);`)
-      lines.push(`  glNormal3f(0.0f, -1.0f, 0.0f);`)
-      for (let i = 2; i >= 0; i--) {
-        lines.push(`  glVertex3f(${toF(v[i][0])}, ${toF(-hh)}, ${toF(v[i][1])});`)
-      }
-      lines.push(`  glEnd();`)
-      // 3 side faces
-      lines.push(`  glBegin(GL_QUADS);`)
-      for (let i = 0; i < 3; i++) {
-        const j = (i + 1) % 3
-        // Compute outward normal for this face
-        const dx = v[j][0] - v[i][0]
-        const dz = v[j][1] - v[i][1]
-        const len = Math.sqrt(dx * dx + dz * dz)
-        const nx = dz / len
-        const nz = -dx / len
-        lines.push(`  glNormal3f(${toF(nx)}, 0.0f, ${toF(nz)});`)
-        lines.push(`  glVertex3f(${toF(v[i][0])}, ${toF(-hh)}, ${toF(v[i][1])});`)
-        lines.push(`  glVertex3f(${toF(v[j][0])}, ${toF(-hh)}, ${toF(v[j][1])});`)
-        lines.push(`  glVertex3f(${toF(v[j][0])}, ${toF(hh)}, ${toF(v[j][1])});`)
-        lines.push(`  glVertex3f(${toF(v[i][0])}, ${toF(hh)}, ${toF(v[i][1])});`)
-      }
-      lines.push(`  glEnd();`)
-      break
+      break;
     }
     default:
       lines.push(`  glutSolidCube(1.0);`)
@@ -158,6 +154,10 @@ function emit2DObject(lines: string[], object: SceneObject) {
 export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
   const lines: string[] = []
   const is3D = space === '3d'
+
+  // Reset global prism collector
+  if (!(window as any).__customPrismDefs) (window as any).__customPrismDefs = [];
+  (window as any).__customPrismDefs = [];
 
   // Includes
   lines.push('#include <GL/glut.h>')
@@ -229,7 +229,7 @@ export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
   lines.push('}')
   lines.push('')
 
-  // Display function — matches Viewport3D camera exactly
+  // Display function --- matches Viewport3D camera exactly
   lines.push('void display() {')
   if (is3D) {
     lines.push('  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);')
@@ -265,7 +265,7 @@ export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
     // Position (same as group position)
     lines.push(`  glTranslatef(${toF(object.position[0])}, ${toF(object.position[1])}, ${toF(object.position[2])});`)
 
-    // Rotation — Viewport3D converts degrees to radians for Three.js
+    // Rotation --- Viewport3D converts degrees to radians for Three.js
     // glRotatef takes degrees, so we pass object.rotation directly
     if (object.rotation[0] !== 0)
       lines.push(`  glRotatef(${toF(object.rotation[0])}, 1.0f, 0.0f, 0.0f);`)
@@ -274,7 +274,7 @@ export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
     if (object.rotation[2] !== 0)
       lines.push(`  glRotatef(${toF(object.rotation[2])}, 0.0f, 0.0f, 1.0f);`)
 
-    // Scale (same as group scale — no scaleBoost in export)
+    // Scale (same as group scale --- no scaleBoost in export)
     lines.push(`  glScalef(${toF(object.scale[0])}, ${toF(object.scale[1])}, ${toF(object.scale[2])});`)
 
     // Color
@@ -295,7 +295,7 @@ export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
   lines.push('}')
   lines.push('')
 
-  // Keyboard handler — WASD movement
+  // Keyboard handler --- WASD movement
   if (is3D) {
     lines.push('void keyboard(unsigned char key, int x, int y) {')
     lines.push('  (void)x; (void)y;')
@@ -433,6 +433,10 @@ export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
   lines.push('')
   lines.push('  return 0;')
   lines.push('}')
+  lines.push('')
 
-  return lines.join('\n')
+  const customDefs = (window as any).__customPrismDefs ? (window as any).__customPrismDefs.join('\n\n') : '';
+  delete (window as any).__customPrismDefs;
+
+  return lines.join('\n') + '\n\n' + customDefs;
 }
