@@ -15,7 +15,7 @@ const sanitizeName = (name: string, fallback: string) => {
  * Viewport3D already applies position/rotation/scale on the outer <group>,
  * so these functions only emit the intrinsic geometry --- the part inside the group.
  */
-function emit3DObject(lines: string[], object: SceneObject) {
+function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: string[]) {
   switch (object.kind) {
     case 'cube': {
       const ext = computeCubeExtents(object);
@@ -59,9 +59,7 @@ function emit3DObject(lines: string[], object: SceneObject) {
       if ((object as any).prismMesh) {
         const mesh = (object as any).prismMesh;
         const customFunc = exportPrismToGlut(mesh, `prism_${object.id}`);
-        // Accumulate custom definitions in a global array
-        if (!(window as any).__customPrismDefs) (window as any).__customPrismDefs = [];
-        (window as any).__customPrismDefs.push(customFunc);
+        customPrismDefs.push(customFunc);
         lines.push(`  drawPrism_${object.id}();`);
       } else {
         // Fallback triangular prism (3 sides) --- centered origin
@@ -154,10 +152,7 @@ function emit2DObject(lines: string[], object: SceneObject) {
 export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
   const lines: string[] = []
   const is3D = space === '3d'
-
-  // Reset global prism collector
-  if (!(window as any).__customPrismDefs) (window as any).__customPrismDefs = [];
-  (window as any).__customPrismDefs = [];
+  const customPrismDefs: string[] = []
 
   // Includes
   lines.push('#include <GL/glut.h>')
@@ -253,10 +248,6 @@ export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
   }
 
   // Each object: push matrix, apply transform, draw, pop
-  // This exactly mirrors how Viewport3D renders:
-  //   <group position={} rotation={} scale={}>
-  //     <mesh>  <geometry />  </mesh>
-  //   </group>
   objects.forEach((object, index) => {
     const name = sanitizeName(object.name, `object_${index + 1}`)
     lines.push(`  // --- ${name} ---`)
@@ -282,7 +273,7 @@ export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
 
     // Draw the shape (intrinsic geometry only)
     if (is3D) {
-      emit3DObject(lines, object)
+      emit3DObject(lines, object, customPrismDefs)
     } else {
       emit2DObject(lines, object)
     }
@@ -435,8 +426,7 @@ export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
   lines.push('}')
   lines.push('')
 
-  const customDefs = (window as any).__customPrismDefs ? (window as any).__customPrismDefs.join('\n\n') : '';
-  delete (window as any).__customPrismDefs;
+  const customDefs = customPrismDefs.join('\n\n');
 
   return lines.join('\n') + '\n\n' + customDefs;
 }

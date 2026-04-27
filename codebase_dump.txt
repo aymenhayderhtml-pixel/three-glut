@@ -18,17 +18,11 @@
         |-- ContextMenu.tsx
         |-- PrismEditGizmo.tsx
         |-- PrismEditor.tsx
-        |-- VoxelControls.tsx
-        |-- VoxelScene.tsx
-        |-- VoxelStyles.css
-        |-- VoxelViewport.tsx
     |-- export
     |-- geometry
         |-- prismGeometry.ts
     |-- managers
-        |-- CubeManager.ts
     |-- store
-        |-- cubeStore.ts
         |-- prismStore.ts
     |-- types
         |-- prism.types.ts
@@ -45,7 +39,6 @@
     |-- Viewport.tsx
     |-- Viewport3D.tsx
     |-- vite-env.d.ts
-    |-- voxel-index.ts
 |-- three-glut
     |-- src
         |-- components
@@ -76,6 +69,7 @@
 |-- tsconfig.app.json
 |-- tsconfig.json
 |-- tsconfig.node.json
+|-- update.txt
 |-- vite.config.ts
 
 === C:\Users\hp\Desktop\final project\graphics\machine\three glut\eslint.config.js ===
@@ -1457,14 +1451,7 @@ function isEditableTarget(target: EventTarget | null) {
   )
 }
 
-function getFallbackSelection(objects: SceneObject[], removedId: string) {
-  const removedIndex = objects.findIndex((object) => object.id === removedId)
-  if (removedIndex < 0) {
-    return objects[0]?.id ?? null
-  }
 
-  return objects[removedIndex + 1]?.id ?? objects[removedIndex - 1]?.id ?? null
-}
 
 function roundTo(value: number, digits = 2) {
   return Number(value.toFixed(digits))
@@ -1625,8 +1612,8 @@ function App() {
   const [grabMode, setGrabMode] = useState(false)
   const [axisLock, setAxisLock] = useState<AxisLock>(null)
   const [isCodePanelOpen, setIsCodePanelOpen] = useState(true)
-  const isExplorerOpen = true
-  const isInspectorOpen = true
+  const [isExplorerOpen, setIsExplorerOpen] = useState(true)
+  const [isInspectorOpen, setIsInspectorOpen] = useState(true)
   const [exportScope, setExportScope] = useState<ExportScope>('scene')
   const [searchQuery, setSearchQuery] = useState('')
   const [copyStatus, setCopyStatus] = useState('Ready to export')
@@ -1741,7 +1728,7 @@ function App() {
     }
   }
 
-  const cancelSceneTransaction = () => {
+  const cancelSceneTransaction = useCallback(() => {
     const before = transactionRef.current
     if (!before) {
       return
@@ -1749,9 +1736,9 @@ function App() {
 
     transactionRef.current = null
     restoreSnapshot(before)
-  }
+  }, [restoreSnapshot])
 
-  const undo = () => {
+  const undo = useCallback(() => {
     if (transactionRef.current) {
       cancelSceneTransaction()
       return
@@ -1768,9 +1755,9 @@ function App() {
       future: [current, ...history.future],
     })
     restoreSnapshot(previous)
-  }
+  }, [cancelSceneTransaction, history.past, history.future, makeSnapshot, restoreSnapshot])
 
-  const redo = () => {
+  const redo = useCallback(() => {
     if (transactionRef.current) {
       return
     }
@@ -1786,7 +1773,7 @@ function App() {
       future: history.future.slice(1),
     })
     restoreSnapshot(next)
-  }
+  }, [history.past, history.future, makeSnapshot, restoreSnapshot])
 
   const updateSceneObjects = (
     space: Space,
@@ -1934,7 +1921,7 @@ function App() {
         }
       }
     }
-  }, [activeSpace, selectedObject, selectedCubeFace])
+  }, [activeSpace, selectedObject, selectedCubeFace, updateCubeFacePull])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1967,7 +1954,7 @@ function App() {
     setCopyStatus(`Added ${KIND_LABELS[kind].toLowerCase()}`)
   }
 
-  const duplicateObjectById = (id: string) => {
+  const duplicateObjectById = useCallback((id: string) => {
     const sourceIndex = activeScene.findIndex((object) => object.id === id)
     if (sourceIndex < 0) {
       return
@@ -1989,16 +1976,16 @@ function App() {
     })
 
     setCopyStatus(`Duplicated ${source.name}`)
-  }
+  }, [activeScene, activeSpace, commitSceneChange, updateSceneObjects])
 
-  const deleteObjectById = (id: string) => {
+  const deleteObjectById = useCallback((id: string) => {
     const sourceIndex = activeScene.findIndex((object) => object.id === id)
     if (sourceIndex < 0) {
       return
     }
 
     const nextScene = activeScene.filter((object) => object.id !== id)
-    const fallbackSelection = getFallbackSelection(nextScene, id)
+    const fallbackSelection = nextScene[sourceIndex]?.id ?? nextScene[sourceIndex - 1]?.id ?? null
 
     commitSceneChange(() => {
       updateSceneObjects(activeSpace, () => nextScene)
@@ -2016,7 +2003,7 @@ function App() {
     setCopyStatus(
       `Deleted ${KIND_LABELS[activeScene[sourceIndex].kind].toLowerCase()}`,
     )
-  }
+  }, [activeScene, activeSpace, commitSceneChange, updateSceneObjects])
 
   const shortcuts = useMemo(
     () => ({
@@ -2442,6 +2429,20 @@ function App() {
           </button>
           <button
             type="button"
+            className={isExplorerOpen ? 'toggle-active' : ''}
+            onClick={() => setIsExplorerOpen((current) => !current)}
+          >
+            Explorer
+          </button>
+          <button
+            type="button"
+            className={isInspectorOpen ? 'toggle-active' : ''}
+            onClick={() => setIsInspectorOpen((current) => !current)}
+          >
+            Inspector
+          </button>
+          <button
+            type="button"
             className={isCodePanelOpen ? 'toggle-active' : ''}
             onClick={() => setIsCodePanelOpen((current) => !current)}
           >
@@ -2509,7 +2510,7 @@ function App() {
             <div className="scene-list">
               {filteredObjects.map(({ object, index }) => (
                 <ExplorerRow
-                  key={`${object.id}:${object.name}`}
+                  key={object.id}
                   object={object}
                   index={index}
                   selected={object.id === activeSelectionId}
@@ -2593,7 +2594,7 @@ function App() {
                     type="text"
                     value={selectedObject.name}
                     onChange={(event) =>
-                      updateSelected({ name: event.target.value })
+                      updateSelected({ name: event.target.value }, false)
                     }
                   />
                 </Field>
@@ -2605,7 +2606,7 @@ function App() {
                     onChange={(event) =>
                       updateSelected({
                         color: hexToVec3(event.target.value),
-                      })
+                      }, false)
                     }
                   />
                 </Field>
@@ -4188,6 +4189,11 @@ export function createSceneObject(kind: PrimitiveKind, index: number): SceneObje
         height: 1.6,
         sides: 3,
         segments: 1,
+        prismParams: {
+          sides: 3,
+          radius: 0.9,
+          height: 1.6,
+        },
       }
   }
 }
@@ -5568,6 +5574,7 @@ function getObjectRenderProps(object: SceneObject) {
       break;
     case 'prism':
       geometry = <cylinderGeometry args={[object.radius, object.radius, object.height, object.prismParams?.sides || 3, 1]} />;
+      scale = [1, 1, 1];
       break;
     default:
       geometry = <boxGeometry args={[1, 1, 1]} />;
@@ -5718,13 +5725,6 @@ export default function Viewport3D({
 
 === C:\Users\hp\Desktop\final project\graphics\machine\three glut\src\vite-env.d.ts ===
 /// <reference types="vite/client" />
-
-=== C:\Users\hp\Desktop\final project\graphics\machine\three glut\src\voxel-index.ts ===
-export { CubeManager, type CubeData } from './managers/CubeManager'
-export { useCubeStore, type CubeStore } from './store/cubeStore'
-export { VoxelScene } from './components/VoxelScene'
-export { VoxelControls } from './components/VoxelControls'
-export { VoxelViewport } from './components/VoxelViewport'
 
 === C:\Users\hp\Desktop\final project\graphics\machine\three glut\src\commands\bevelEdge.ts ===
 import { PrismMesh, Vertex, Edge } from '../types/prism.types';
@@ -6453,410 +6453,6 @@ export function PrismEditor() {
     );
 }
 
-=== C:\Users\hp\Desktop\final project\graphics\machine\three glut\src\components\VoxelControls.tsx ===
-import { useCubeStore } from '../store/cubeStore'
-import { useState } from 'react'
-
-export function VoxelControls() {
-  const spawnGrid = useCubeStore((state) => state.spawnGrid)
-  const spawnRandom = useCubeStore((state) => state.spawnRandom)
-  const clearCubes = useCubeStore((state) => state.clearCubes)
-  const selectedCubeId = useCubeStore((state) => state.selectedCubeId)
-  const selectCube = useCubeStore((state) => state.selectCube)
-  const removeCube = useCubeStore((state) => state.removeCube)
-  const updateCube = useCubeStore((state) => state.updateCube)
-  const cubes = useCubeStore((state) => state.cubes)
-  
-  const [isExplorerOpen, setIsExplorerOpen] = useState(true)
-  const [isInspectorOpen, setIsInspectorOpen] = useState(true)
-  const [isCodeOpen, setIsCodeOpen] = useState(true)
-
-  const selectedCube = cubes.find((c) => c.id === selectedCubeId)
-
-  const handleRotationChange = (axis: 'x' | 'y' | 'z', value: number) => {
-    if (!selectedCubeId || !selectedCube) return
-    
-    const newRotation: [number, number, number] = [...(selectedCube.rotation || [0, 0, 0])]
-    const axisIndex = axis === 'x' ? 0 : axis === 'y' ? 1 : 2
-    newRotation[axisIndex] = value
-    updateCube(selectedCubeId, { rotation: newRotation })
-  }
-
-  return (
-    <div className="voxel-controls">
-      <h3>Voxel Builder</h3>
-      
-      {/* Panel Toggle Buttons */}
-      <div className="control-group panel-toggles">
-        <button 
-          onClick={() => setIsExplorerOpen(!isExplorerOpen)}
-          className={isExplorerOpen ? 'active' : ''}
-        >
-          {isExplorerOpen ? 'â–¼' : 'â–¶'} Explorer
-        </button>
-        <button 
-          onClick={() => setIsInspectorOpen(!isInspectorOpen)}
-          className={isInspectorOpen ? 'active' : ''}
-        >
-          {isInspectorOpen ? 'â–¼' : 'â–¶'} Inspector
-        </button>
-        <button 
-          onClick={() => setIsCodeOpen(!isCodeOpen)}
-          className={isCodeOpen ? 'active' : ''}
-        >
-          {isCodeOpen ? 'â–¼' : 'â–¶'} Code
-        </button>
-      </div>
-
-      <div className="control-group">
-        <button onClick={() => spawnGrid(5)}>
-          Spawn 5Ã—5Ã—5 Grid
-        </button>
-        <button onClick={() => spawnGrid(3)}>
-          Spawn 3Ã—3Ã—3 Grid
-        </button>
-      </div>
-
-      <div className="control-group">
-        <button onClick={() => spawnRandom(50)}>
-          Spawn 50 Random
-        </button>
-        <button onClick={() => spawnRandom(200)}>
-          Spawn 200 Random
-        </button>
-      </div>
-
-      <div className="control-group">
-        <button onClick={clearCubes} style={{ backgroundColor: '#ff4444' }}>
-          Clear All Cubes
-        </button>
-      </div>
-
-      {selectedCube && (
-        <div className="control-group selection-info">
-          <p>Selected: {selectedCube.id.slice(-8)}</p>
-          
-          {/* Rotation Controls */}
-          <div className="rotation-controls">
-            <label>
-              Rotation X:
-              <input
-                type="number"
-                value={Math.round(selectedCube.rotation?.[0] || 0)}
-                onChange={(e) => handleRotationChange('x', Number(e.target.value))}
-                min={0}
-                max={360}
-                step={15}
-              />
-            </label>
-            <label>
-              Rotation Y:
-              <input
-                type="number"
-                value={Math.round(selectedCube.rotation?.[1] || 0)}
-                onChange={(e) => handleRotationChange('y', Number(e.target.value))}
-                min={0}
-                max={360}
-                step={15}
-              />
-            </label>
-            <label>
-              Rotation Z:
-              <input
-                type="number"
-                value={Math.round(selectedCube.rotation?.[2] || 0)}
-                onChange={(e) => handleRotationChange('z', Number(e.target.value))}
-                min={0}
-                max={360}
-                step={15}
-              />
-            </label>
-          </div>
-          
-          <button 
-            onClick={() => { if (selectedCubeId) removeCube(selectedCubeId) }}
-            style={{ backgroundColor: '#ff6644' }}
-          >
-            Delete Selected
-          </button>
-          <button onClick={() => selectCube(null)}>
-            Deselect
-          </button>
-        </div>
-      )}
-
-      <div className="instructions">
-        <p><strong>Controls:</strong></p>
-        <ul>
-          <li>Click a cube to select it</li>
-          <li>Shift+Click or Ctrl+Click to delete a cube</li>
-          <li>Use OrbitControls to rotate/zoom the view</li>
-          <li>Adjust rotation values for selected cube</li>
-        </ul>
-      </div>
-    </div>
-  )
-}
-
-=== C:\Users\hp\Desktop\final project\graphics\machine\three glut\src\components\VoxelScene.tsx ===
-import { useEffect, useRef } from 'react'
-import * as THREE from 'three'
-import { useThree } from '@react-three/fiber'
-import { CubeManager } from '../managers/CubeManager'
-import { useCubeStore } from '../store/cubeStore'
-
-export function VoxelScene() {
-  const managerRef = useRef<CubeManager | null>(null)
-  const meshRef = useRef<THREE.InstancedMesh | null>(null)
-  const { scene, raycaster, camera, gl } = useThree()
-
-  const cubes = useCubeStore((state) => state.cubes)
-  const selectedCubeId = useCubeStore((state) => state.selectedCubeId)
-  const hoveredCubeId = useCubeStore((state) => state.hoveredCubeId)
-  const selectCube = useCubeStore((state) => state.selectCube)
-  const setHoveredCube = useCubeStore((state) => state.setHoveredCube)
-  const removeCube = useCubeStore((state) => state.removeCube)
-
-  // Initialize CubeManager and InstancedMesh
-  useEffect(() => {
-    if (!managerRef.current) {
-      managerRef.current = new CubeManager(10000)
-      const mesh = managerRef.current.createMesh()
-      meshRef.current = mesh
-      scene.add(mesh)
-    }
-
-    return () => {
-      if (managerRef.current) {
-        if (meshRef.current) {
-          scene.remove(meshRef.current)
-        }
-        managerRef.current.dispose()
-        managerRef.current = null
-        meshRef.current = null
-      }
-    }
-  }, [scene])
-
-  // Sync cubes from store to InstancedMesh
-  useEffect(() => {
-    const manager = managerRef.current
-    if (!manager) return
-
-    const currentCubes = manager.getAllCubes()
-    const currentIds = new Set(currentCubes.map((c) => c.id))
-    const storeIds = new Set(cubes.map((c) => c.id))
-
-    // Remove cubes that are no longer in the store
-    for (const cube of currentCubes) {
-      if (!storeIds.has(cube.id)) {
-        manager.removeCube(cube.id)
-      }
-    }
-
-    // Add or update cubes from the store
-    for (const cube of cubes) {
-      if (!currentIds.has(cube.id)) {
-        manager.addCube(cube)
-      } else {
-        manager.updateCube(cube.id, cube)
-      }
-    }
-  }, [cubes])
-
-  // Handle selection highlighting
-  useEffect(() => {
-    const manager = managerRef.current
-    if (!manager) return
-
-    // Highlight selected cube
-    if (selectedCubeId) {
-      manager.setCubeHighlight(selectedCubeId, new THREE.Color(0xffaa00))
-    } else if (hoveredCubeId) {
-      manager.setCubeHighlight(hoveredCubeId, new THREE.Color(0xffff00))
-    } else {
-      manager.setCubeHighlight(null)
-    }
-  }, [selectedCubeId, hoveredCubeId])
-
-  // Handle raycasting for selection
-  useEffect(() => {
-    const handlePointerDown = (event: MouseEvent) => {
-      const manager = managerRef.current
-      if (!manager || !meshRef.current) return
-
-      const rect = gl.domElement.getBoundingClientRect()
-      const mouse = new THREE.Vector2(
-        ((event.clientX - rect.left) / rect.width) * 2 - 1,
-        -((event.clientY - rect.top) / rect.height) * 2 + 1
-      )
-
-      raycaster.setFromCamera(mouse, camera)
-      const result = manager.raycast(raycaster)
-
-      if (result) {
-        if (event.shiftKey || event.ctrlKey || event.metaKey) {
-          // Delete cube
-          removeCube(result.id)
-        } else {
-          // Select cube
-          selectCube(result.id)
-        }
-      } else {
-        selectCube(null)
-      }
-    }
-
-    const handlePointerMove = (event: MouseEvent) => {
-      const manager = managerRef.current
-      if (!manager || !meshRef.current) return
-
-      const rect = gl.domElement.getBoundingClientRect()
-      const mouse = new THREE.Vector2(
-        ((event.clientX - rect.left) / rect.width) * 2 - 1,
-        -((event.clientY - rect.top) / rect.height) * 2 + 1
-      )
-
-      raycaster.setFromCamera(mouse, camera)
-      const result = manager.raycast(raycaster)
-
-      if (result) {
-        setHoveredCube(result.id)
-        gl.domElement.style.cursor = 'pointer'
-      } else {
-        setHoveredCube(null)
-        gl.domElement.style.cursor = 'default'
-      }
-    }
-
-    const canvas = gl.domElement
-    canvas.addEventListener('pointerdown', handlePointerDown)
-    canvas.addEventListener('pointermove', handlePointerMove)
-
-    return () => {
-      canvas.removeEventListener('pointerdown', handlePointerDown)
-      canvas.removeEventListener('pointermove', handlePointerMove)
-    }
-  }, [raycaster, camera, gl, selectCube, setHoveredCube, removeCube])
-
-  return null
-}
-
-=== C:\Users\hp\Desktop\final project\graphics\machine\three glut\src\components\VoxelStyles.css ===
-/* Voxel Builder â€” Blender-style controls */
-.voxel-controls {
-  padding: 8px;
-  font-size: 0.75rem;
-}
-
-.voxel-controls h3 {
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-strong);
-  margin: 0 0 8px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--border);
-}
-
-.voxel-controls .control-group {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-bottom: 8px;
-}
-
-.voxel-controls button {
-  width: 100%;
-  padding: 5px 8px;
-  font-size: 0.72rem;
-  border: 1px solid var(--border-light);
-  border-radius: 2px;
-  background: var(--bg-raised);
-  color: var(--text);
-  cursor: pointer;
-  text-align: left;
-}
-
-.voxel-controls button:hover {
-  background: var(--bg-hover);
-}
-
-.voxel-controls .selection-info {
-  padding: 6px;
-  background: var(--bg-darkest);
-  border: 1px solid var(--border);
-  border-radius: 2px;
-}
-
-.voxel-controls .selection-info p {
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
-
-.voxel-controls .instructions {
-  padding: 6px;
-  background: var(--bg-darkest);
-  border: 1px solid var(--border);
-  border-radius: 2px;
-  margin-top: 8px;
-}
-
-.voxel-controls .instructions p {
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  margin-bottom: 3px;
-}
-
-.voxel-controls .instructions ul {
-  margin: 2px 0 0;
-  padding-left: 14px;
-  font-size: 0.65rem;
-  color: var(--text-dim);
-}
-
-.voxel-controls .instructions li {
-  margin-bottom: 1px;
-}
-
-=== C:\Users\hp\Desktop\final project\graphics\machine\three glut\src\components\VoxelViewport.tsx ===
-import { Canvas } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
-import { VoxelScene } from './VoxelScene'
-
-export function VoxelViewport() {
-  return (
-    <div className="voxel-viewport">
-      <Canvas
-        camera={{ position: [15, 10, 15], fov: 60 }}
-        shadows
-        style={{ background: '#1a1a2e' }}
-      >
-        <ambientLight intensity={0.4} />
-        <directionalLight
-          position={[10, 15, 10]}
-          intensity={1}
-          castShadow
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
-        />
-        <pointLight position={[-10, -10, -10]} intensity={0.3} />
-        
-        <VoxelScene />
-        
-        <OrbitControls
-          enableDamping
-          dampingFactor={0.05}
-          minDistance={5}
-          maxDistance={100}
-        />
-      </Canvas>
-    </div>
-  )
-}
-
 === C:\Users\hp\Desktop\final project\graphics\machine\three glut\src\geometry\prismGeometry.ts ===
 import { Vertex, Face, Edge, PrismMesh } from '../types/prism.types';
 
@@ -6972,360 +6568,6 @@ function computeCenter(verts: Vertex[]): Vertex {
   const count = verts.length;
   return { x: sum.x / count, y: sum.y / count, z: sum.z / count };
 }
-
-=== C:\Users\hp\Desktop\final project\graphics\machine\three glut\src\managers\CubeManager.ts ===
-import * as THREE from 'three'
-
-export type CubeData = {
-  id: string
-  position: [number, number, number]
-  rotation: [number, number, number] // x, y, z rotation in degrees
-  color: [number, number, number]
-  size: number
-}
-
-export class CubeManager {
-  private mesh: THREE.InstancedMesh | null = null
-  private cubeMap: Map<string, number> = new Map()
-  private dataMap: Map<string, CubeData> = new Map()
-  private dummy: THREE.Object3D
-  private maxCubes: number
-  private geometry: THREE.BoxGeometry
-  private material: THREE.MeshStandardMaterial
-
-  constructor(maxCubes: number = 10000) {
-    this.maxCubes = maxCubes
-    this.dummy = new THREE.Object3D()
-    this.geometry = new THREE.BoxGeometry(1, 1, 1)
-    this.material = new THREE.MeshStandardMaterial({
-      roughness: 0.55,
-      metalness: 0.12,
-    })
-  }
-
-  public createMesh(): THREE.InstancedMesh {
-    this.mesh = new THREE.InstancedMesh(this.geometry, this.material, this.maxCubes)
-    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
-    this.mesh.castShadow = true
-    this.mesh.receiveShadow = true
-    return this.mesh
-  }
-
-  public getMesh(): THREE.InstancedMesh | null {
-    return this.mesh
-  }
-
-  public addCube(cube: CubeData): void {
-    if (!this.mesh || this.cubeMap.size >= this.maxCubes) {
-      console.warn('CubeManager: Cannot add more cubes')
-      return
-    }
-
-    const instanceId = this.cubeMap.size
-    this.cubeMap.set(cube.id, instanceId)
-    this.dataMap.set(cube.id, cube)
-
-    this.updateInstance(instanceId, cube)
-    this.mesh!.count = this.cubeMap.size
-  }
-
-  public removeCube(id: string): void {
-    const instanceId = this.cubeMap.get(id)
-    if (instanceId === undefined) {
-      return
-    }
-
-    this.cubeMap.delete(id)
-    this.dataMap.delete(id)
-
-    // Remove the instance by swapping with the last one
-    this.removeInstance(instanceId)
-  }
-
-  public updateCube(id: string, updates: Partial<CubeData>): void {
-    const cube = this.dataMap.get(id)
-    const instanceId = this.cubeMap.get(id)
-
-    if (!cube || instanceId === undefined || !this.mesh) {
-      return
-    }
-
-    const updatedCube: CubeData = { ...cube, ...updates }
-    this.dataMap.set(id, updatedCube)
-    this.updateInstance(instanceId, updatedCube)
-  }
-
-  public getCube(id: string): CubeData | undefined {
-    return this.dataMap.get(id)
-  }
-
-  public getAllCubes(): CubeData[] {
-    return Array.from(this.dataMap.values())
-  }
-
-  public raycast(raycaster: THREE.Raycaster): { id: string; instanceId: number } | null {
-    if (!this.mesh) {
-      return null
-    }
-
-    const intersects = raycaster.intersectObject(this.mesh)
-
-    if (intersects.length > 0) {
-      const instanceId = intersects[0].instanceId
-      // Find the cube id by instanceId
-      for (const [id, instId] of this.cubeMap.entries()) {
-        if (instId === instanceId) {
-          return { id, instanceId }
-        }
-      }
-    }
-
-    return null
-  }
-
-  public setCubeHighlight(id: string | null, emissiveColor?: THREE.Color): void {
-    if (!this.mesh) {
-      return
-    }
-
-    // Reset all to default emissive
-    const defaultEmissive = new THREE.Color(0x000000)
-
-    for (let i = 0; i < this.mesh.count; i++) {
-      this.mesh.setColorAt(i, defaultEmissive)
-    }
-
-    if (id !== null) {
-      const instanceId = this.cubeMap.get(id)
-      if (instanceId !== undefined && emissiveColor) {
-        this.mesh.setColorAt(instanceId, emissiveColor)
-      }
-    }
-
-    this.mesh.instanceColor!.needsUpdate = true
-  }
-
-  public clear(): void {
-    this.cubeMap.clear()
-    this.dataMap.clear()
-    if (this.mesh) {
-      this.mesh.count = 0
-    }
-  }
-
-  public dispose(): void {
-    this.geometry.dispose()
-    this.material.dispose()
-    if (this.mesh) {
-      this.mesh.dispose()
-    }
-    this.cubeMap.clear()
-    this.dataMap.clear()
-  }
-
-  private updateInstance(instanceId: number, cube: CubeData): void {
-    if (!this.mesh) {
-      return
-    }
-
-    this.dummy.position.set(cube.position[0], cube.position[1], cube.position[2])
-    this.dummy.scale.set(cube.size, cube.size, cube.size)
-
-    // Apply rotation (convert degrees to radians)
-    this.dummy.rotation.x = (cube.rotation?.[0] ?? 0) * (Math.PI / 180)
-    this.dummy.rotation.y = (cube.rotation?.[1] ?? 0) * (Math.PI / 180)
-    this.dummy.rotation.z = (cube.rotation?.[2] ?? 0) * (Math.PI / 180)
-
-    this.dummy.updateMatrix()
-
-    this.mesh.setMatrixAt(instanceId, this.dummy.matrix)
-    this.mesh.instanceMatrix.needsUpdate = true
-
-    // Update color
-    const color = new THREE.Color().setRGB(cube.color[0], cube.color[1], cube.color[2])
-    this.mesh.setColorAt(instanceId, color)
-    this.mesh.instanceColor!.needsUpdate = true
-  }
-
-  private removeInstance(instanceId: number): void {
-    if (!this.mesh) {
-      return
-    }
-
-    const lastIndex = this.mesh.count - 1
-
-    // If we're not removing the last instance, swap it with the last one
-    if (instanceId !== lastIndex) {
-      // Find the cube at the last index
-      let lastCubeId: string | null = null
-      for (const [id, idx] of this.cubeMap.entries()) {
-        if (idx === lastIndex) {
-          lastCubeId = id
-          break
-        }
-      }
-
-      if (lastCubeId) {
-        // Copy the last instance's matrix to the removed instance's slot
-        const matrix = new THREE.Matrix4()
-        this.mesh.getMatrixAt(lastIndex, matrix)
-        this.mesh.setMatrixAt(instanceId, matrix)
-
-        // Copy the color
-        const color = new THREE.Color()
-        this.mesh.getColorAt(lastIndex, color)
-        this.mesh.setColorAt(instanceId, color)
-
-        // Update the map
-        this.cubeMap.set(lastCubeId, instanceId)
-      }
-    }
-
-    this.mesh.count = lastIndex
-    this.mesh.instanceMatrix.needsUpdate = true
-    if (this.mesh.instanceColor) {
-      this.mesh.instanceColor.needsUpdate = true
-    }
-  }
-}
-
-=== C:\Users\hp\Desktop\final project\graphics\machine\three glut\src\store\cubeStore.ts ===
-import { create } from 'zustand'
-import type { CubeData } from '../managers/CubeManager'
-
-export interface CubeStore {
-  cubes: CubeData[]
-  selectedCubeId: string | null
-  hoveredCubeId: string | null
-  
-  // Actions
-  addCube: (cube: CubeData) => void
-  removeCube: (id: string) => void
-  updateCube: (id: string, updates: Partial<CubeData>) => void
-  selectCube: (id: string | null) => void
-  setHoveredCube: (id: string | null) => void
-  clearCubes: () => void
-  spawnGrid: (size: number, spacing?: number) => void
-  spawnRandom: (count: number, bounds?: { x: [number, number]; y: [number, number]; z: [number, number] }) => void
-}
-
-const DEFAULT_BOUNDS = {
-  x: [-10, 10] as [number, number],
-  y: [0, 10] as [number, number],
-  z: [-10, 10] as [number, number],
-}
-
-function generateId(): string {
-  return `cube_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-}
-
-function randomInRange([min, max]: [number, number]): number {
-  return min + Math.random() * (max - min)
-}
-
-export const useCubeStore = create<CubeStore>((set) => ({
-  cubes: [],
-  selectedCubeId: null,
-  hoveredCubeId: null,
-
-  addCube: (cube: CubeData) => {
-    set((state) => ({
-      cubes: [...state.cubes, cube],
-    }))
-  },
-
-  removeCube: (id: string) => {
-    set((state) => ({
-      cubes: state.cubes.filter((c) => c.id !== id),
-      selectedCubeId: state.selectedCubeId === id ? null : state.selectedCubeId,
-      hoveredCubeId: state.hoveredCubeId === id ? null : state.hoveredCubeId,
-    }))
-  },
-
-  updateCube: (id: string, updates: Partial<CubeData>) => {
-    set((state) => ({
-      cubes: state.cubes.map((c) =>
-        c.id === id ? { ...c, ...updates } : c
-      ),
-    }))
-  },
-
-  selectCube: (id: string | null) => {
-    set({ selectedCubeId: id })
-  },
-
-  setHoveredCube: (id: string | null) => {
-    set({ hoveredCubeId: id })
-  },
-
-  clearCubes: () => {
-    set({ cubes: [], selectedCubeId: null, hoveredCubeId: null })
-  },
-
-  spawnGrid: (size: number, spacing: number = 1.2) => {
-    const newCubes: CubeData[] = []
-    const offset = ((size - 1) * spacing) / 2
-
-    for (let x = 0; x < size; x++) {
-      for (let y = 0; y < size; y++) {
-        for (let z = 0; z < size; z++) {
-          newCubes.push({
-            id: generateId(),
-            position: [
-              x * spacing - offset,
-              y * spacing,
-              z * spacing - offset,
-            ],
-            rotation: [0, 0, 0],
-            color: [
-              0.5 + Math.random() * 0.5,
-              0.5 + Math.random() * 0.5,
-              0.5 + Math.random() * 0.5,
-            ],
-            size: 1,
-          })
-        }
-      }
-    }
-
-    set((state) => ({
-      cubes: [...state.cubes, ...newCubes],
-    }))
-  },
-
-  spawnRandom: (
-    count: number,
-    bounds: { x: [number, number]; y: [number, number]; z: [number, number] } = DEFAULT_BOUNDS
-  ) => {
-    const newCubes: CubeData[] = []
-
-    for (let i = 0; i < count; i++) {
-      newCubes.push({
-        id: generateId(),
-        position: [
-          randomInRange(bounds.x),
-          randomInRange(bounds.y),
-          randomInRange(bounds.z),
-        ],
-        rotation: [
-          randomInRange([0, 360]),
-          randomInRange([0, 360]),
-          randomInRange([0, 360]),
-        ],
-        color: [
-          0.3 + Math.random() * 0.7,
-          0.3 + Math.random() * 0.7,
-          0.3 + Math.random() * 0.7,
-        ],
-        size: 0.8 + Math.random() * 0.4,
-      })
-    }
-
-    set((state) => ({
-      cubes: [...state.cubes, ...newCubes],
-    }))
-  },
-}))
 
 === C:\Users\hp\Desktop\final project\graphics\machine\three glut\src\store\prismStore.ts ===
 import { create } from 'zustand';

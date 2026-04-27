@@ -78,23 +78,7 @@ function SelectableObject({ object, selected, onSelect, onUpdateObject, editMode
   return (
     <>
       {showTransformControls ? (
-        <TransformControls
-          mode={transformMode}
-          object={meshRef.current!}
-          position={object.position}
-          rotation={object.rotation.map((r: number) => r * Math.PI / 180) as [number, number, number]}
-          scale={object.scale}
-          onChange={(e: any) => {
-            if (e && e.target && e.target.object) {
-              const o = e.target.object;
-              onUpdateObject(object.id, {
-                position: [o.position.x, o.position.y, o.position.z],
-                rotation: [o.rotation.x * 180 / Math.PI, o.rotation.y * 180 / Math.PI, o.rotation.z * 180 / Math.PI],
-                scale: [o.scale.x, o.scale.y, o.scale.z],
-              });
-            }
-          }}
-        >
+        <>
           <group onClick={(e) => { e.stopPropagation(); onSelect(object.id); }}>
             <mesh ref={meshRef} scale={scale}>
               {geometry}
@@ -107,7 +91,29 @@ function SelectableObject({ object, selected, onSelect, onUpdateObject, editMode
               </mesh>
             )}
           </group>
-        </TransformControls>
+          {meshRef.current && (
+            <TransformControls
+              mode={transformMode}
+              object={meshRef.current}
+              position={object.position}
+              rotation={object.rotation.map((r: number) => r * Math.PI / 180) as [number, number, number]}
+              scale={object.scale}
+              onChange={(e: any) => {
+                if (e && e.target && e.target.object) {
+                  const o = e.target.object;
+                  // Defer the update to avoid "update during render" crash
+                  requestAnimationFrame(() => {
+                    onUpdateObject(object.id, {
+                      position: [o.position.x, o.position.y, o.position.z],
+                      rotation: [o.rotation.x * 180 / Math.PI, o.rotation.y * 180 / Math.PI, o.rotation.z * 180 / Math.PI],
+                      scale: [o.scale.x, o.scale.y, o.scale.z],
+                    });
+                  });
+                }
+              }}
+            />
+          )}
+        </>
       ) : (
         <group
           position={object.position}

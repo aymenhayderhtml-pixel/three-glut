@@ -429,41 +429,45 @@ function App() {
   }, [restoreSnapshot])
 
   const undo = useCallback(() => {
-    if (transactionRef.current) {
-      cancelSceneTransaction()
-      return
-    }
+    setHistory((current) => {
+      if (transactionRef.current) {
+        cancelSceneTransaction()
+        return current
+      }
 
-    if (history.past.length === 0) {
-      return
-    }
+      if (current.past.length === 0) {
+        return current
+      }
 
-    const current = makeSnapshot()
-    const previous = history.past[history.past.length - 1]
-    setHistory({
-      past: history.past.slice(0, -1),
-      future: [current, ...history.future],
+      const now = makeSnapshot()
+      const previous = current.past[current.past.length - 1]
+      
+      restoreSnapshot(previous)
+      
+      return {
+        past: current.past.slice(0, -1),
+        future: [now, ...current.future],
+      }
     })
-    restoreSnapshot(previous)
-  }, [cancelSceneTransaction, history.past, history.future, makeSnapshot, restoreSnapshot])
+  }, [cancelSceneTransaction, makeSnapshot, restoreSnapshot])
 
   const redo = useCallback(() => {
-    if (transactionRef.current) {
-      return
-    }
+    setHistory((current) => {
+      if (transactionRef.current || current.future.length === 0) {
+        return current
+      }
 
-    if (history.future.length === 0) {
-      return
-    }
-
-    const current = makeSnapshot()
-    const next = history.future[0]
-    setHistory({
-      past: [...history.past, current],
-      future: history.future.slice(1),
+      const now = makeSnapshot()
+      const next = current.future[0]
+      
+      restoreSnapshot(next)
+      
+      return {
+        past: [...current.past, now],
+        future: current.future.slice(1),
+      }
     })
-    restoreSnapshot(next)
-  }, [history.past, history.future, makeSnapshot, restoreSnapshot])
+  }, [makeSnapshot, restoreSnapshot])
 
   const updateSceneObjects = (
     space: Space,
