@@ -1,0 +1,48 @@
+# Project Updates - April 27, 2026
+
+Implemented the following 10 fixes and improvements to the Three GLUT project:
+
+1. **Deletion Fallback Logic (src/App.tsx):**
+   - Fixed `deleteObjectById` to compute the fallback selection index before filtering the scene.
+   - Prevents selection loss when deleting items.
+
+2. **History Optimization - Name Field (src/App.tsx):**
+   - Disabled history recording on every keystroke for the object name input.
+   - History is now only committed on blur or via manual trigger.
+
+3. **History Optimization - Color Picker (src/App.tsx):**
+   - Disabled history recording on micro-changes during color picking (dragging the picker).
+   - Prevents history spam.
+
+4. **Dependency Fix (src/App.tsx):**
+   - Added `updateCubeFacePull` to the `handlePullAction` useCallback dependency array.
+
+5. **Explorer Performance (src/App.tsx):**
+   - Changed `ExplorerRow` keys to use `object.id` instead of a composite key.
+   - Prevents unnecessary remounts and focus loss during renames.
+
+6. **Handler Stabilization (src/App.tsx):**
+   - Wrapped `undo`, `redo`, `duplicateObjectById`, `deleteObjectById`, and `cancelSceneTransaction` in `useCallback`.
+   - Stabilizes the `shortcuts` memo and prevents excessive re-renders.
+
+7. **Panel Controls (src/App.tsx):**
+   - Implemented real state and toggle buttons for `isExplorerOpen` and `isInspectorOpen`.
+   - Panels can now be toggled from the top bar.
+
+8. **Color Restoration (src/managers/CubeManager.ts):**
+   - Updated `setCubeHighlight` to correctly restore original cube colors from the data map instead of defaulting to black.
+
+9. **Prism Initialization & Rendering (src/scene.ts & src/Viewport3D.tsx):**
+   - Initialized `prismParams` in `createSceneObject`.
+   - Explicitly set `scale = [1, 1, 1]` for prism render props to ensure predictable geometry sizing.
+
+10. **Dead Code Cleanup:**
+    - Removed unused voxel subsystem files:
+      - `src/managers/CubeManager.ts`
+      - `src/store/cubeStore.ts`
+      - `src/components/VoxelScene.tsx`
+      - `src/components/VoxelControls.tsx`
+      - `src/components/VoxelViewport.tsx`
+      - `src/components/VoxelStyles.css`
+      - `src/voxel-index.ts`
+    - Removed unused `getFallbackSelection` function from `src/App.tsx`.

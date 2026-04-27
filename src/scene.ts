@@ -407,6 +407,11 @@ export function createSceneObject(kind: PrimitiveKind, index: number): SceneObje
         height: 1.6,
         sides: 3,
         segments: 1,
+        prismParams: {
+          sides: 3,
+          radius: 0.9,
+          height: 1.6,
+        },
       }
   }
 }

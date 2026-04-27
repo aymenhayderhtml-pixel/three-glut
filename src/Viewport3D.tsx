@@ -37,6 +37,7 @@ function getObjectRenderProps(object: SceneObject) {
       break;
     case 'prism':
       geometry = <cylinderGeometry args={[object.radius, object.radius, object.height, object.prismParams?.sides || 3, 1]} />;
+      scale = [1, 1, 1];
       break;
     default:
       geometry = <boxGeometry args={[1, 1, 1]} />;

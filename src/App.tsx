@@ -141,14 +141,7 @@ function isEditableTarget(target: EventTarget | null) {
   )
 }
 
-function getFallbackSelection(objects: SceneObject[], removedId: string) {
-  const removedIndex = objects.findIndex((object) => object.id === removedId)
-  if (removedIndex < 0) {
-    return objects[0]?.id ?? null
-  }
 
-  return objects[removedIndex + 1]?.id ?? objects[removedIndex - 1]?.id ?? null
-}
 
 function roundTo(value: number, digits = 2) {
   return Number(value.toFixed(digits))
@@ -309,8 +302,8 @@ function App() {
   const [grabMode, setGrabMode] = useState(false)
   const [axisLock, setAxisLock] = useState<AxisLock>(null)
   const [isCodePanelOpen, setIsCodePanelOpen] = useState(true)
-  const isExplorerOpen = true
-  const isInspectorOpen = true
+  const [isExplorerOpen, setIsExplorerOpen] = useState(true)
+  const [isInspectorOpen, setIsInspectorOpen] = useState(true)
   const [exportScope, setExportScope] = useState<ExportScope>('scene')
   const [searchQuery, setSearchQuery] = useState('')
   const [copyStatus, setCopyStatus] = useState('Ready to export')
@@ -425,7 +418,7 @@ function App() {
     }
   }
 
-  const cancelSceneTransaction = () => {
+  const cancelSceneTransaction = useCallback(() => {
     const before = transactionRef.current
     if (!before) {
       return
@@ -433,9 +426,9 @@ function App() {
 
     transactionRef.current = null
     restoreSnapshot(before)
-  }
+  }, [restoreSnapshot])
 
-  const undo = () => {
+  const undo = useCallback(() => {
     if (transactionRef.current) {
       cancelSceneTransaction()
       return
@@ -452,9 +445,9 @@ function App() {
       future: [current, ...history.future],
     })
     restoreSnapshot(previous)
-  }
+  }, [cancelSceneTransaction, history.past, history.future, makeSnapshot, restoreSnapshot])
 
-  const redo = () => {
+  const redo = useCallback(() => {
     if (transactionRef.current) {
       return
     }
@@ -470,7 +463,7 @@ function App() {
       future: history.future.slice(1),
     })
     restoreSnapshot(next)
-  }
+  }, [history.past, history.future, makeSnapshot, restoreSnapshot])
 
   const updateSceneObjects = (
     space: Space,
@@ -618,7 +611,7 @@ function App() {
         }
       }
     }
-  }, [activeSpace, selectedObject, selectedCubeFace])
+  }, [activeSpace, selectedObject, selectedCubeFace, updateCubeFacePull])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -651,7 +644,7 @@ function App() {
     setCopyStatus(`Added ${KIND_LABELS[kind].toLowerCase()}`)
   }
 
-  const duplicateObjectById = (id: string) => {
+  const duplicateObjectById = useCallback((id: string) => {
     const sourceIndex = activeScene.findIndex((object) => object.id === id)
     if (sourceIndex < 0) {
       return
@@ -673,16 +666,16 @@ function App() {
     })
 
     setCopyStatus(`Duplicated ${source.name}`)
-  }
+  }, [activeScene, activeSpace, commitSceneChange, updateSceneObjects])
 
-  const deleteObjectById = (id: string) => {
+  const deleteObjectById = useCallback((id: string) => {
     const sourceIndex = activeScene.findIndex((object) => object.id === id)
     if (sourceIndex < 0) {
       return
     }
 
     const nextScene = activeScene.filter((object) => object.id !== id)
-    const fallbackSelection = getFallbackSelection(nextScene, id)
+    const fallbackSelection = nextScene[sourceIndex]?.id ?? nextScene[sourceIndex - 1]?.id ?? null
 
     commitSceneChange(() => {
       updateSceneObjects(activeSpace, () => nextScene)
@@ -700,7 +693,7 @@ function App() {
     setCopyStatus(
       `Deleted ${KIND_LABELS[activeScene[sourceIndex].kind].toLowerCase()}`,
     )
-  }
+  }, [activeScene, activeSpace, commitSceneChange, updateSceneObjects])
 
   const shortcuts = useMemo(
     () => ({
@@ -1126,6 +1119,20 @@ function App() {
           </button>
           <button
             type="button"
+            className={isExplorerOpen ? 'toggle-active' : ''}
+            onClick={() => setIsExplorerOpen((current) => !current)}
+          >
+            Explorer
+          </button>
+          <button
+            type="button"
+            className={isInspectorOpen ? 'toggle-active' : ''}
+            onClick={() => setIsInspectorOpen((current) => !current)}
+          >
+            Inspector
+          </button>
+          <button
+            type="button"
             className={isCodePanelOpen ? 'toggle-active' : ''}
             onClick={() => setIsCodePanelOpen((current) => !current)}
           >
@@ -1193,7 +1200,7 @@ function App() {
             <div className="scene-list">
               {filteredObjects.map(({ object, index }) => (
                 <ExplorerRow
-                  key={`${object.id}:${object.name}`}
+                  key={object.id}
                   object={object}
                   index={index}
                   selected={object.id === activeSelectionId}
@@ -1277,7 +1284,7 @@ function App() {
                     type="text"
                     value={selectedObject.name}
                     onChange={(event) =>
-                      updateSelected({ name: event.target.value })
+                      updateSelected({ name: event.target.value }, false)
                     }
                   />
                 </Field>
@@ -1289,7 +1296,7 @@ function App() {
                     onChange={(event) =>
                       updateSelected({
                         color: hexToVec3(event.target.value),
-                      })
+                      }, false)
                     }
                   />
                 </Field>
