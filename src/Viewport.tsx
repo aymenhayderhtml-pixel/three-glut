@@ -21,6 +21,7 @@ import {
   type PrimitiveKind,
   type SceneObject,
   type Space,
+  type TransformMode,
   type ThreeDEditMode,
   type TwoDTool,
 } from './scene'
@@ -32,6 +33,8 @@ const WORLD_HEIGHT = 16
 const DEFAULT_ASPECT = 16 / 10
 const TWO_D_TOOL_LABELS: Record<TwoDTool, string> = {
   select: 'Select',
+  move: 'Move',
+  scale: 'Scale',
   line: 'Line',
   rect: 'Rect',
   circle: 'Circle',
@@ -50,6 +53,7 @@ type ViewportProps = {
   selectedId: string | null
   active2DTool: TwoDTool
   threeDEditMode: ThreeDEditMode
+  transformMode: TransformMode | null
   selectedCubeFace: CubeFaceKey | null
   selectedCubeEdge: CubeEdgeKey | null
   grabMode: boolean
@@ -103,6 +107,14 @@ type TwoDInteraction =
     pointerId: number
     objectId: string
     startPointer: [number, number, number]
+    startPosition: [number, number, number]
+  }
+  | {
+    kind: 'scale'
+    pointerId: number
+    objectId: string
+    startPointer: [number, number, number]
+    startScale: [number, number, number]
     startPosition: [number, number, number]
   }
 
@@ -265,6 +277,7 @@ export function Viewport({
   selectedId,
   active2DTool,
   threeDEditMode,
+  transformMode,
   selectedCubeFace,
   selectedCubeEdge,
   grabMode,
@@ -289,8 +302,8 @@ export function Viewport({
     objects.find((object) => object.id === selectedId) ?? null
   const modeLabel =
     space === '2d'
-      ? active2DTool === 'select'
-        ? 'Select'
+      ? active2DTool === 'select' || active2DTool === 'move' || active2DTool === 'scale'
+        ? TWO_D_TOOL_LABELS[active2DTool]
         : `Draw ${TWO_D_TOOL_LABELS[active2DTool]}`
       : THREE_D_EDIT_MODE_LABELS[threeDEditMode]
   const axisLabel =
@@ -311,12 +324,12 @@ export function Viewport({
 
         <div className="viewport-toolbar">
           {space === '2d'
-            ? (['select', 'measure', 'line', 'rect', 'circle'] as const).map((tool) => (
-              <button
-                key={tool}
-                type="button"
-                className={active2DTool === tool ? 'toggle-active' : ''}
-                onClick={() => on2DToolChange(tool)}
+            ? (['select', 'move', 'scale', 'measure', 'line', 'rect', 'circle'] as const).map((tool) => (
+                <button
+                  key={tool}
+                  type="button"
+                  className={active2DTool === tool ? 'toggle-active' : ''}
+                  onClick={() => on2DToolChange(tool)}
               >
                 {TWO_D_TOOL_LABELS[tool]}
               </button>
@@ -354,6 +367,7 @@ export function Viewport({
             onCommitSceneTransaction={onCommitSceneTransaction}
             onCancelSceneTransaction={onCancelSceneTransaction}
             onMoveObject={onMoveObject}
+            onUpdateObject={onUpdateObject}
             onCreate2DObject={onCreate2DObject}
             onStatusChange={onStatusChange}
             lastMeasuredId={lastMeasuredId}
@@ -370,6 +384,7 @@ export function Viewport({
               objects={objects}
               selectedId={selectedId}
               editMode={threeDEditMode}
+              transformMode={transformMode}
               selectedFace={selectedCubeFace}
               selectedEdge={selectedCubeEdge}
               grabMode={grabMode}
@@ -427,6 +442,7 @@ function TwoDViewport({
   onCommitSceneTransaction,
   onCancelSceneTransaction,
   onMoveObject,
+  onUpdateObject,
   onCreate2DObject,
   onStatusChange,
   lastMeasuredId,
@@ -445,6 +461,7 @@ function TwoDViewport({
     position: [number, number, number],
     recordHistory?: boolean,
   ) => void
+  onUpdateObject: (id: string, changes: Partial<SceneObject>) => void
   onCreate2DObject: (
     kind: Extract<PrimitiveKind, 'line' | 'rect' | 'circle'>,
     start: [number, number, number],
@@ -529,18 +546,33 @@ function TwoDViewport({
         return
       }
 
-      const deltaX = worldPoint[0] - current.startPointer[0]
-      const deltaY = worldPoint[1] - current.startPointer[1]
-      const nextPosition = applyAxisLock2D(
-        current.startPosition,
-        [
-          roundTo(current.startPosition[0] + deltaX),
-          roundTo(current.startPosition[1] + deltaY),
-          0,
-        ],
-        axisLock,
-      )
-      onMoveObject(current.objectId, nextPosition, false)
+      if (current.kind === 'grab') {
+        const deltaX = worldPoint[0] - current.startPointer[0]
+        const deltaY = worldPoint[1] - current.startPointer[1]
+        const nextPosition = applyAxisLock2D(
+          current.startPosition,
+          [
+            roundTo(current.startPosition[0] + deltaX),
+            roundTo(current.startPosition[1] + deltaY),
+            0,
+          ],
+          axisLock,
+        )
+        onMoveObject(current.objectId, nextPosition, false)
+        return
+      }
+
+      if (current.kind === 'scale') {
+        const deltaX = Math.abs(worldPoint[0] - current.startPointer[0])
+        const deltaY = Math.abs(worldPoint[1] - current.startPointer[1])
+        const nextScale: [number, number, number] = [
+          Math.max(0.1, roundTo(current.startScale[0] + deltaX * 0.2)),
+          Math.max(0.1, roundTo(current.startScale[1] + deltaY * 0.2)),
+          current.startScale[2],
+        ]
+        onUpdateObject(current.objectId, { scale: nextScale })
+        onStatusChange?.(`Scaling ${objects.find((o) => o.id === current.objectId)?.name ?? 'object'}`)
+      }
     }
 
     const handleUp = (event: PointerEvent) => {
@@ -551,7 +583,9 @@ function TwoDViewport({
 
       if (current.kind === 'draw') {
         onCreate2DObject(current.tool, current.start, current.current)
-      } else {
+      } else if (current.kind === 'grab') {
+        onCommitSceneTransaction()
+      } else if (current.kind === 'scale') {
         onCommitSceneTransaction()
       }
 
@@ -564,7 +598,7 @@ function TwoDViewport({
         return
       }
 
-      if (current.kind === 'grab') {
+      if (current.kind === 'grab' || current.kind === 'scale') {
         onCancelSceneTransaction()
       }
 
@@ -638,7 +672,7 @@ function TwoDViewport({
 
     onSelect(null)
 
-    if (grabMode) {
+    if (grabMode || active2DTool === 'move') {
       return
     }
 
@@ -665,6 +699,39 @@ function TwoDViewport({
     event.stopPropagation()
     event.preventDefault()
     onSelect(object.id)
+    const rect = svgRef.current.getBoundingClientRect()
+    const startPointer = pointerToWorldPoint(
+      event.clientX,
+      event.clientY,
+      rect,
+      worldWidth,
+      WORLD_HEIGHT,
+    )
+
+    if (active2DTool === 'move') {
+      onBeginSceneTransaction()
+      setInteraction({
+        kind: 'grab',
+        pointerId: event.pointerId,
+        objectId: object.id,
+        startPointer,
+        startPosition: object.position,
+      })
+      return
+    }
+
+    if (active2DTool === 'scale') {
+      onBeginSceneTransaction()
+      setInteraction({
+        kind: 'scale',
+        pointerId: event.pointerId,
+        objectId: object.id,
+        startPointer,
+        startPosition: object.position,
+        startScale: object.scale,
+      })
+      return
+    }
 
     if (!grabMode && active2DTool !== 'measure') {
       return
@@ -675,15 +742,6 @@ function TwoDViewport({
       onStatusChange?.(`Measuring ${object.name}`)
       return
     }
-
-    const rect = svgRef.current.getBoundingClientRect()
-    const startPointer = pointerToWorldPoint(
-      event.clientX,
-      event.clientY,
-      rect,
-      worldWidth,
-      WORLD_HEIGHT,
-    )
 
     onBeginSceneTransaction()
     setInteraction({
@@ -781,6 +839,7 @@ function TwoDViewport({
               key={object.id}
               object={object}
               selected={selectedObject?.id === object.id}
+              active2DTool={active2DTool}
               onPointerDown={beginGrab}
             />
           ))}
@@ -849,10 +908,12 @@ function TwoDViewport({
 function TwoDObject({
   object,
   selected,
+  active2DTool,
   onPointerDown,
 }: {
   object: SceneObject
   selected: boolean
+  active2DTool: TwoDTool
   onPointerDown: (
     object: SceneObject,
     event: ReactPointerEvent<SVGGElement>,
@@ -865,12 +926,14 @@ function TwoDObject({
       onPointerDown(object, event),
   }
 
+  const showScaleHandles = selected && active2DTool === 'scale'
+
   if (object.kind === 'line') {
     const halfLength = object.length / 2
     return (
       <g
         key={object.id}
-        transform={`translate(${object.position[0]} ${-object.position[1]}) rotate(${-object.rotation[2]})`}
+        transform={`translate(${object.position[0]} ${-object.position[1]}) rotate(${-object.rotation[2]}) scale(${object.scale[0]} ${object.scale[1]})`}
         opacity={selected ? 1 : 0.96}
         {...common}
       >
@@ -892,6 +955,9 @@ function TwoDObject({
           strokeWidth={Math.max(0.18, object.thickness * 0.14)}
           strokeLinecap="round"
         />
+        {showScaleHandles ? (
+          <circle cx={halfLength} cy={0} r={0.18} fill="#ffd39c" stroke="#111" strokeWidth={0.05} />
+        ) : null}
       </g>
     )
   }
@@ -900,7 +966,7 @@ function TwoDObject({
     return (
       <g
         key={object.id}
-        transform={`translate(${object.position[0]} ${-object.position[1]}) rotate(${-object.rotation[2]})`}
+        transform={`translate(${object.position[0]} ${-object.position[1]}) rotate(${-object.rotation[2]}) scale(${object.scale[0]} ${object.scale[1]})`}
         {...common}
       >
         <rect
@@ -914,6 +980,9 @@ function TwoDObject({
           stroke={strokeColor}
           strokeWidth={0.12}
         />
+        {showScaleHandles ? (
+          <circle cx={object.width / 2} cy={object.height / 2} r={0.18} fill="#ffd39c" stroke="#111" strokeWidth={0.05} />
+        ) : null}
       </g>
     )
   }
@@ -922,7 +991,7 @@ function TwoDObject({
     return (
       <g
         key={object.id}
-        transform={`translate(${object.position[0]} ${-object.position[1]})`}
+        transform={`translate(${object.position[0]} ${-object.position[1]}) scale(${object.scale[0]} ${object.scale[1]})`}
         {...common}
       >
         <circle
@@ -932,6 +1001,7 @@ function TwoDObject({
           stroke={strokeColor}
           strokeWidth={0.12}
         />
+        {showScaleHandles ? <circle r={object.radius} fill="none" stroke="#ffd39c" strokeWidth={0.14} strokeDasharray="0.3 0.2" /> : null}
       </g>
     )
   }
@@ -940,7 +1010,7 @@ function TwoDObject({
     return (
       <g
         key={object.id}
-        transform={`translate(${object.position[0]} ${-object.position[1]}) rotate(${-object.rotation[2]})`}
+        transform={`translate(${object.position[0]} ${-object.position[1]}) rotate(${-object.rotation[2]}) scale(${object.scale[0]} ${object.scale[1]})`}
         {...common}
       >
         <polygon

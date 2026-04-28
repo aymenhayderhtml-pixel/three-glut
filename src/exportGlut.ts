@@ -58,9 +58,10 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
     case 'prism': {
       if ((object as any).prismMesh) {
         const mesh = (object as any).prismMesh;
-        const customFunc = exportPrismToGlut(mesh, `prism_${object.id}`);
+        const funcName = `prism_${object.id.replace(/-/g, '_')}`;
+        const customFunc = exportPrismToGlut(mesh, funcName);
         customPrismDefs.push(customFunc);
-        lines.push(`  drawPrism_${object.id}();`);
+        lines.push(`  draw${funcName}();`);
       } else {
         // Fallback triangular prism (3 sides) --- centered origin
         const r = object.radius;

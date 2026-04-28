@@ -396,12 +396,17 @@
   overflow: hidden; /* children control their own scroll */
 }
 
-/* Inspector section — scrollable, takes remaining space */
-.be-inspector-section {
-  flex: 1 1 0;
+.be-right-panel-inner {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+/* Inspector section — scrollable, takes remaining space */
+.be-inspector-section {
   border-bottom: 1px solid var(--be-border);
 }
 
@@ -459,10 +464,6 @@
 
 /* Export section — shrinks to fit, scrolls if too tall */
 .be-export-section {
-  flex-shrink: 0;
-  max-height: 54%;
-  overflow-y: auto;
-  overflow-x: hidden;
   padding-bottom: 12px;
   border-top: 1px solid var(--be-border);
 }

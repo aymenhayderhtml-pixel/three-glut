@@ -9,13 +9,10 @@ import {
 } from 'react'
 import './App.css'
 import { exportGlutProgram } from './exportGlut'
-import { PrismProperties } from './ui/PrismProperties'
-import { PrismToolbar } from './ui/PrismToolbar'
 import { Viewport } from './Viewport'
 import { ContextMenu, type ContextMenuAction, type ContextMenuState } from './components/ContextMenu'
 import {
   CUBE_EDGE_KEYS,
-  CUBE_EDGE_LABELS,
   CUBE_FACE_KEYS,
   CUBE_FACE_LABELS,
   KIND_LABELS,
@@ -25,7 +22,6 @@ import {
   copySceneObjects,
   createSceneDocument,
   createSceneObject,
-  formatColor,
   hexToVec3,
   loadStoredSceneDocument,
   parseSceneDocument,
@@ -39,6 +35,7 @@ import {
   type SceneDocument,
   type SceneObject,
   type Space,
+  type TransformMode,
   type ThreeDEditMode,
   type TwoDTool,
 } from './scene'
@@ -54,13 +51,6 @@ type SceneSnapshot = {
 type HistoryState = {
   past: SceneSnapshot[]
   future: SceneSnapshot[]
-}
-
-const THREE_D_EDIT_MODE_LABELS: Record<ThreeDEditMode, string> = {
-  object: 'Object',
-  edge: 'Edge',
-  face: 'Face',
-  measure: 'Measure',
 }
 
 const initialScenes: Record<Space, SceneObject[]> = {
@@ -192,92 +182,6 @@ function Field({
   )
 }
 
-function ExplorerRow({
-  object,
-  index,
-  selected,
-  onSelect,
-  onRename,
-  onDuplicate,
-  onDelete,
-}: {
-  object: SceneObject
-  index: number
-  selected: boolean
-  onSelect: (id: string) => void
-  onRename: (id: string, name: string) => void
-  onDuplicate: (id: string) => void
-  onDelete: (id: string) => void
-}) {
-  const [draftName, setDraftName] = useState(object.name)
-
-  const commitRename = () => {
-    const trimmed = draftName.trim()
-    if (!trimmed) {
-      setDraftName(object.name)
-      return
-    }
-
-    if (trimmed !== object.name) {
-      onRename(object.id, trimmed)
-    }
-
-    setDraftName(trimmed)
-  }
-
-  return (
-    <div className={selected ? 'scene-row active' : 'scene-row'}>
-      <button
-        type="button"
-        className="scene-icon-button scene-delete"
-        aria-label={`Delete ${object.name}`}
-        onClick={() => onDelete(object.id)}
-      >
-        Delete
-      </button>
-
-      <div className="scene-row-main" onClick={() => onSelect(object.id)}>
-        <span className="scene-index">{String(index + 1).padStart(2, '0')}</span>
-        <span className="scene-meta">
-          <input
-            type="text"
-            value={draftName}
-            onFocus={() => onSelect(object.id)}
-            onClick={(event) => event.stopPropagation()}
-            onChange={(event) => setDraftName(event.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                commitRename()
-                ;(event.currentTarget as HTMLInputElement).blur()
-              }
-
-              if (event.key === 'Escape') {
-                event.preventDefault()
-                setDraftName(object.name)
-                ;(event.currentTarget as HTMLInputElement).blur()
-              }
-            }}
-          />
-          <small>
-            {KIND_LABELS[object.kind]} - {formatColor(object.color)}
-          </small>
-        </span>
-      </div>
-
-      <button
-        type="button"
-        className="scene-icon-button scene-duplicate"
-        aria-label={`Duplicate ${object.name}`}
-        onClick={() => onDuplicate(object.id)}
-      >
-        Duplicate
-      </button>
-    </div>
-  )
-}
-
 function App() {
   const [bootstrap] = useState(getInitialState)
   const [activeSpace, setActiveSpace] = useState<Space>(bootstrap.activeSpace)
@@ -295,17 +199,15 @@ function App() {
   const [active2DTool, setActive2DTool] = useState<TwoDTool>('select')
   const [threeDEditMode, setThreeDEditMode] =
     useState<ThreeDEditMode>('object')
+  const [transformMode, setTransformMode] =
+    useState<TransformMode | null>(null)
   const [selectedCubeFace, setSelectedCubeFace] =
     useState<CubeFaceKey | null>(null)
   const [selectedCubeEdge, setSelectedCubeEdge] =
     useState<CubeEdgeKey | null>(null)
   const [grabMode, setGrabMode] = useState(false)
   const [axisLock, setAxisLock] = useState<AxisLock>(null)
-  const [isCodePanelOpen, setIsCodePanelOpen] = useState(true)
-  const [isExplorerOpen, setIsExplorerOpen] = useState(true)
-  const [isInspectorOpen, setIsInspectorOpen] = useState(true)
   const [exportScope, setExportScope] = useState<ExportScope>('scene')
-  const [searchQuery, setSearchQuery] = useState('')
   const [copyStatus, setCopyStatus] = useState('Ready to export')
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -315,23 +217,6 @@ function App() {
   const activeSelectionId = selection[activeSpace]
   const selectedObject =
     activeScene.find((object) => object.id === activeSelectionId) ?? null
-  const filteredObjects = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
-    if (!query) {
-      return activeScene.map((object, index) => ({ object, index }))
-    }
-
-    return activeScene
-      .map((object, index) => ({ object, index }))
-      .filter(({ object }) => {
-        const kindLabel = KIND_LABELS[object.kind].toLowerCase()
-        return (
-          object.name.toLowerCase().includes(query) ||
-          kindLabel.includes(query)
-        )
-      })
-  }, [activeScene, searchQuery])
-
   const canSubEditCube =
     activeSpace === '3d' && selectedObject?.kind === 'cube'
   const effectiveThreeDEditMode: ThreeDEditMode = canSubEditCube
@@ -345,14 +230,6 @@ function App() {
     canSubEditCube && effectiveThreeDEditMode === 'edge'
       ? (selectedCubeEdge ?? CUBE_EDGE_KEYS[0])
       : null
-  const activeFacePull =
-    canSubEditCube && effectiveSelectedCubeFace
-      ? selectedObject.facePulls[effectiveSelectedCubeFace] ?? 0
-      : 0
-  const activeEdgePull =
-    canSubEditCube && effectiveSelectedCubeEdge
-      ? selectedObject.edgePulls[effectiveSelectedCubeEdge] ?? 0
-      : 0
 
   const sceneDocument: SceneDocument = useMemo(
     () => createSceneDocument(activeSpace, scenes),
@@ -490,6 +367,7 @@ function App() {
   const selectSpace = (space: Space) => {
     setActiveSpace(space)
     setGrabMode(false)
+    setTransformMode(null)
     setAxisLock(null)
   }
 
@@ -534,6 +412,9 @@ function App() {
 
   const updateThreeDEditMode = (mode: ThreeDEditMode) => {
     setThreeDEditMode(mode)
+    if (mode === 'object') {
+      setTransformMode(null)
+    }
     if (mode === 'face' && !selectedCubeFace) {
       setSelectedCubeFace(CUBE_FACE_KEYS[0])
     }
@@ -644,6 +525,7 @@ function App() {
     }
 
     setGrabMode(false)
+    setTransformMode(null)
     setAxisLock(null)
     setCopyStatus(`Added ${KIND_LABELS[kind].toLowerCase()}`)
   }
@@ -691,6 +573,7 @@ function App() {
 
     if (!fallbackSelection) {
       setGrabMode(false)
+      setTransformMode(null)
       setAxisLock(null)
     }
 
@@ -721,26 +604,6 @@ function App() {
       undo,
     ],
   )
-
-  const renameObjectById = (id: string, name: string) => {
-    const trimmed = name.trim()
-    if (!trimmed) {
-      return
-    }
-
-    const current = activeScene.find((object) => object.id === id)
-    if (!current || current.name === trimmed) {
-      return
-    }
-
-    commitSceneChange(() => {
-      updateSceneObjects(activeSpace, (objects) =>
-        objects.map((object) =>
-          object.id === id ? { ...object, name: trimmed } : object,
-        ),
-      )
-    })
-  }
 
   const create2DObjectFromGesture = (
     kind: Extract<PrimitiveKind, 'line' | 'rect' | 'circle'>,
@@ -860,10 +723,10 @@ function App() {
       setActive2DTool('select')
       setThreeDEditMode('object')
       setGrabMode(false)
+      setTransformMode(null)
       setAxisLock(null)
       setSelectedCubeFace(null)
       setSelectedCubeEdge(null)
-      setSearchQuery('')
       setCopyStatus('Imported scene JSON')
     } catch (error) {
       const message =
@@ -885,8 +748,8 @@ function App() {
     setSelectedCubeFace(null)
     setSelectedCubeEdge(null)
     setGrabMode(false)
+    setTransformMode(null)
     setAxisLock(null)
-    setSearchQuery('')
     setCopyStatus('Reset to starter scene')
   }
 
@@ -973,6 +836,7 @@ function App() {
 
         if (!isEditableTarget(event.target)) {
           setGrabMode(false)
+          setTransformMode(null)
           setAxisLock(null)
         }
         return
@@ -1014,6 +878,7 @@ function App() {
         event.preventDefault()
         if (shortcuts.selectedObject) {
           setGrabMode((current) => !current)
+          setTransformMode(null)
           setAxisLock(null)
         }
         return
@@ -1131,15 +996,17 @@ function App() {
               key={t.id}
               type="button"
               className={`be-tool${
-                t.id === 'select' && !grabMode && effectiveThreeDEditMode === 'object' ? ' active' :
-                t.id === 'move'   && grabMode ? ' active' :
+                t.id === 'select' && effectiveThreeDEditMode === 'object' && !transformMode ? ' active' :
+                t.id === 'move'   && effectiveThreeDEditMode === 'object' && transformMode === 'translate' ? ' active' :
+                t.id === 'rotate' && effectiveThreeDEditMode === 'object' && transformMode === 'rotate' ? ' active' :
+                t.id === 'scale'  && effectiveThreeDEditMode === 'object' && transformMode === 'scale' ? ' active' :
                 t.id === 'measure' && effectiveThreeDEditMode === 'measure' ? ' active' : ''
               }`}
               onClick={() => {
-                if (t.id === 'select')  { setGrabMode(false); updateThreeDEditMode('object') }
-                if (t.id === 'move')    { if (selectedObject) setGrabMode(true) }
-                if (t.id === 'rotate')  { if (selectedObject) setGrabMode(true) }
-                if (t.id === 'scale')   { if (selectedObject) setGrabMode(true) }
+                if (t.id === 'select')  { updateThreeDEditMode('object'); setTransformMode(null) }
+                if (t.id === 'move')    { if (selectedObject) { updateThreeDEditMode('object'); setTransformMode('translate') } }
+                if (t.id === 'rotate')  { if (selectedObject) { updateThreeDEditMode('object'); setTransformMode('rotate') } }
+                if (t.id === 'scale')   { if (selectedObject) { updateThreeDEditMode('object'); setTransformMode('scale') } }
                 if (t.id === 'pull')    handlePullAction()
                 if (t.id === 'measure') updateThreeDEditMode('measure')
                 if (t.id === 'hole')    handleContextMenuAction({ type: 'add-hole' } as any)
@@ -1186,14 +1053,10 @@ function App() {
               {m.label}
             </button>
           ))}
-          <span className="be-selected-label">
-            {selectedObject ? selectedObject.name : 'Nothing selected'}
-            {copyStatus && copyStatus !== 'Ready to export' ? (
-              <span style={{ marginLeft: 8, color: 'var(--be-text-dim)', fontWeight: 400 }}>
-                — {copyStatus}
-              </span>
-            ) : null}
-          </span>
+          <span className="be-selected-label">{selectedObject ? selectedObject.name : 'Nothing selected'}</span>
+          {copyStatus && copyStatus !== 'Ready to export' ? (
+            <span className="be-status-pill">{copyStatus}</span>
+          ) : null}
         </div>
       )}
 
@@ -1252,6 +1115,7 @@ function App() {
             selectedId={activeSelectionId}
             active2DTool={active2DTool}
             threeDEditMode={effectiveThreeDEditMode}
+            transformMode={transformMode}
             selectedCubeFace={effectiveSelectedCubeFace}
             selectedCubeEdge={effectiveSelectedCubeEdge}
             grabMode={grabMode}
@@ -1273,16 +1137,33 @@ function App() {
               if (status.includes('Measuring') && activeSelectionId) setLastMeasuredId(activeSelectionId)
             }}
             onUpdateObject={(id, changes) => {
-              if ('prismMesh' in changes) {
-                commitSceneChange(() => {
-                  updateSceneObjects(activeSpace, (current) =>
-                    current.map((obj) => (obj.id === id ? { ...obj, ...changes } : obj)),
-                  )
-                })
-              } else {
+              const needsHistory = 'prismMesh' in changes
+              const apply = () => {
                 updateSceneObjects(activeSpace, (current) =>
-                  current.map((obj) => (obj.id === id ? { ...obj, ...changes } : obj)),
+                  current.map((obj) => {
+                    if (obj.id !== id) {
+                      return obj
+                    }
+
+                    const next = { ...obj, ...changes }
+                    if (obj.kind === 'prism' && ('radius' in changes || 'height' in changes || 'sides' in changes)) {
+                      next.prismMesh = undefined
+                      next.prismParams = {
+                        sides: typeof changes.sides === 'number' ? changes.sides : obj.prismParams?.sides ?? obj.sides,
+                        radius: typeof changes.radius === 'number' ? changes.radius : obj.prismParams?.radius ?? obj.radius,
+                        height: typeof changes.height === 'number' ? changes.height : obj.prismParams?.height ?? obj.height,
+                      }
+                    }
+
+                    return next
+                  }),
                 )
+              }
+
+              if (needsHistory) {
+                commitSceneChange(apply)
+              } else {
+                apply()
               }
             }}
             lastMeasuredId={lastMeasuredId}
@@ -1291,9 +1172,9 @@ function App() {
 
         {/* ── RIGHT PANEL ── */}
         <aside className="be-right-panel">
-
-          {/* INSPECTOR */}
-          <div className="be-section be-inspector-section">
+          <div className="be-right-panel-inner">
+            {/* INSPECTOR */}
+            <div className="be-section be-inspector-section">
             <div className="be-section-header">
               INSPECTOR
               <span className="be-nothing-label">
@@ -1395,8 +1276,9 @@ function App() {
                       onChange={(v) => updateSelected({ radius: Math.max(0.15, v) })} />
                     <NumberField label="Height" value={selectedObject.height} min={0.15} step={0.1}
                       onChange={(v) => updateSelected({ height: Math.max(0.15, v) })} />
-                    <PrismProperties />
-                    <PrismToolbar />
+                    <div className="field">
+                      <span>Prism editing lives in the viewport gizmo</span>
+                    </div>
                   </>)}
 
                   {/* Holes */}
@@ -1435,10 +1317,10 @@ function App() {
                 <p>Select an object in the viewport<br/>or add one from the left panel</p>
               </div>
             )}
-          </div>
+            </div>
 
-          {/* GLUT EXPORT */}
-          <div className="be-section be-export-section">
+            {/* GLUT EXPORT */}
+            <div className="be-section be-export-section">
             <div className="be-section-header">GLUT EXPORT</div>
             <div className="be-export-stats">
               <span className="be-stat">📄 {activeScene.length} objects</span>
@@ -1460,8 +1342,8 @@ function App() {
               </div>
               <pre className="be-code-block">{exportedCode}</pre>
             </div>
+            </div>
           </div>
-
         </aside>
       </main>
 

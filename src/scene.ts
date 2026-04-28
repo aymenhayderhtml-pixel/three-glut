@@ -16,9 +16,10 @@ export type PrimitiveKind =
 
 export type TwoDDrawKind = 'line' | 'rect' | 'circle'
 
-export type TwoDTool = 'select' | 'measure' | TwoDDrawKind
+export type TwoDTool = 'select' | 'move' | 'scale' | 'measure' | TwoDDrawKind
 
 export type ThreeDEditMode = 'object' | 'edge' | 'face' | 'measure'
+export type TransformMode = 'translate' | 'rotate' | 'scale'
 
 export type AxisLock = 'x' | 'y' | 'z' | null
 
@@ -305,11 +306,7 @@ function baseSceneObject(kind: PrimitiveKind, index: number): SceneObject {
         ]),
     rotation: is2D
       ? ([0, 0, round(index * 10)] as [number, number, number])
-      : ([round(15 + index * 5), round(index * 18), round(index * 10)] as [
-          number,
-          number,
-          number,
-        ]),
+      : ([0, 0, 0] as [number, number, number]),
     scale: [1, 1, 1] as [number, number, number],
     color: DEFAULT_COLORS[kind],
     length: 3.2,
