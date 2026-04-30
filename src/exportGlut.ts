@@ -24,13 +24,50 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
       const sz = ext.zPos + ext.zNeg;
       const cx = (ext.xPos - ext.xNeg) / 2;
       const cz = (ext.zPos - ext.zNeg) / 2;
-      
-      if (Math.abs(cx) > 0.001 || Math.abs(cz) > 0.001) {
-        lines.push(`  glTranslatef(${toF(cx)}, 0.0f, ${toF(cz)});`);
+
+      const fc = object.faceColors ?? {}
+      const hasAnyFaceColor = Object.keys(fc).length > 0
+
+      if (!hasAnyFaceColor) {
+        // Fast path: uniform color, use glutSolidCube
+        if (Math.abs(cx) > 0.001 || Math.abs(cz) > 0.001) {
+          lines.push(`  glTranslatef(${toF(cx)}, 0.0f, ${toF(cz)});`);
+        }
+        lines.push(`  glScalef(${toF(sx)}, ${toF(sy)}, ${toF(sz)});`)
+        lines.push(`  glutSolidCube(1.0);`)
+      } else {
+        // Per-face colors: emit GL_QUADS manually
+        const hx = sx / 2, hy = sy / 2, hz = sz / 2
+        const faceColor = (key: string) => {
+          const c = fc[key] ?? object.color
+          return `  glColor3f(${toF(c[0])}, ${toF(c[1])}, ${toF(c[2])});`
+        }
+        if (Math.abs(cx) > 0.001 || Math.abs(cz) > 0.001) {
+          lines.push(`  glTranslatef(${toF(cx)}, 0.0f, ${toF(cz)});`);
+        }
+        lines.push(`  glBegin(GL_QUADS);`)
+        // Top (yPos)
+        lines.push(faceColor('yPos'))
+        lines.push(`  glNormal3f(0,1,0); glVertex3f(${toF(-hx)},${toF(hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(hz)});`)
+        // Bottom (yNeg)
+        lines.push(faceColor('yNeg'))
+        lines.push(`  glNormal3f(0,-1,0); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(-hz)});`)
+        // Front (zPos)
+        lines.push(faceColor('zPos'))
+        lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(hz)});`)
+        // Back (zNeg)
+        lines.push(faceColor('zNeg'))
+        lines.push(`  glNormal3f(0,0,-1); glVertex3f(${toF(hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(-hz)});`)
+        // Right (xPos)
+        lines.push(faceColor('xPos'))
+        lines.push(`  glNormal3f(1,0,0); glVertex3f(${toF(hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(hz)});`)
+        // Left (xNeg)
+        lines.push(faceColor('xNeg'))
+        lines.push(`  glNormal3f(-1,0,0); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(-hz)});`)
+        lines.push(`  glEnd();`)
+        // Restore object color after
+        lines.push(`  glColor3f(${toF(object.color[0])}, ${toF(object.color[1])}, ${toF(object.color[2])});`)
       }
-      
-      lines.push(`  glScalef(${toF(sx)}, ${toF(sy)}, ${toF(sz)});`)
-      lines.push(`  glutSolidCube(1.0);`)
       break
     }
     case 'sphere': {
@@ -63,7 +100,12 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
         customPrismDefs.push(customFunc);
         lines.push(`  draw${funcName}();`);
       } else {
-        // Fallback triangular prism (3 sides) --- centered origin
+        // Fallback triangular prism (3 sides) --- centered origin, with per-face colors
+        const fc = object.faceColors ?? {}
+        const faceColor = (key: string) => {
+          const c = fc[key] ?? object.color
+          return `  glColor3f(${toF(c[0])}, ${toF(c[1])}, ${toF(c[2])});`
+        }
         const r = object.radius;
         const hh = object.height / 2;
         const pts: [number, number][] = [];
@@ -71,15 +113,20 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
           const angle = (Math.PI / 2) + (i * 2 * Math.PI / 3);
           pts.push([r * Math.cos(angle), r * Math.sin(angle)]);
         }
-        lines.push(`  // Triangular prism (centered)`);
+        lines.push(`  // Triangular prism (centered, per-face colors)`);
+        // Top cap
+        lines.push(faceColor('top'))
         lines.push(`  glBegin(GL_TRIANGLES);`);
         lines.push(`  glNormal3f(0.0, 1.0, 0.0);`);
         for (const [x, z] of pts) lines.push(`  glVertex3f(${toF(x)}, ${toF(hh)}, ${toF(z)});`);
         lines.push(`  glEnd();`);
+        // Bottom cap
+        lines.push(faceColor('bottom'))
         lines.push(`  glBegin(GL_TRIANGLES);`);
         lines.push(`  glNormal3f(0.0, -1.0, 0.0);`);
         for (let i = 2; i >= 0; i--) lines.push(`  glVertex3f(${toF(pts[i][0])}, ${toF(-hh)}, ${toF(pts[i][1])});`);
         lines.push(`  glEnd();`);
+        // Sides
         lines.push(`  glBegin(GL_QUADS);`);
         for (let i = 0; i < 3; i++) {
           const j = (i + 1) % 3;
@@ -87,6 +134,7 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
           const dx = x2 - x1, dz = z2 - z1;
           const len = Math.hypot(dx, dz);
           const nx = dz / len, nz = -dx / len;
+          lines.push(faceColor(`side${i}`))
           lines.push(`  glNormal3f(${toF(nx)}, 0.0, ${toF(nz)});`);
           lines.push(`  glVertex3f(${toF(x1)}, ${toF(-hh)}, ${toF(z1)});`);
           lines.push(`  glVertex3f(${toF(x2)}, ${toF(-hh)}, ${toF(z2)});`);
@@ -94,6 +142,8 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
           lines.push(`  glVertex3f(${toF(x1)}, ${toF(hh)}, ${toF(z1)});`);
         }
         lines.push(`  glEnd();`);
+        // Restore
+        lines.push(`  glColor3f(${toF(object.color[0])}, ${toF(object.color[1])}, ${toF(object.color[2])});`);
       }
       break;
     }

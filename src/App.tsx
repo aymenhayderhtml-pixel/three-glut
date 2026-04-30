@@ -214,6 +214,28 @@ function App() {
   const [lastMeasuredId, setLastMeasuredId] = useState<string | null>(null)
   const [glutImportCode, setGlutImportCode] = useState<string>('')
   const [glutImportTab, setGlutImportTab] = useState<'export' | 'import'>('export')
+  const [favoriteColors, setFavoriteColors] = useState<(string | null)[]>(() => {
+    try {
+      const stored = localStorage.getItem('three-glut-fav-colors')
+      if (stored) return JSON.parse(stored)
+    } catch {}
+    return [null, null, null, null, null]
+  })
+
+  const saveFavorite = (index: number) => {
+    if (!selectedObject) return
+    const hex = vec3ToHex(selectedObject.color)
+    const next = [...favoriteColors]
+    next[index] = hex
+    setFavoriteColors(next)
+    localStorage.setItem('three-glut-fav-colors', JSON.stringify(next))
+    setCopyStatus(`Saved to slot ${index + 1}`)
+  }
+
+  const applyFavorite = (hex: string) => {
+    if (!selectedObject) return
+    updateSelected({ color: hexToVec3(hex) })
+  }
 
   const activeScene = scenes[activeSpace]
   const activeSelectionId = selection[activeSpace]
@@ -1106,6 +1128,185 @@ function App() {
                 </li>
               ))}
             </ul>
+          </div>
+
+          {/* ── COLOR PANEL ── */}
+          <div className="be-section">
+            <div className="be-section-header">Colors</div>
+            {selectedObject ? (
+              <div style={{ padding: '6px 10px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+                {/* Global object color */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', flex: 1 }}>Object</span>
+                  <input
+                    type="color"
+                    value={vec3ToHex(selectedObject.color)}
+                    style={{ width: 32, height: 22, padding: 1, borderRadius: 4, border: '1px solid var(--be-border-2)', cursor: 'pointer', background: 'var(--be-bg)' }}
+                    onChange={(e) => updateSelected({ color: hexToVec3(e.target.value) }, false)}
+                    onBlur={(e) => updateSelected({ color: hexToVec3(e.target.value) })}
+                  />
+                  <div style={{
+                    width: 18, height: 18, borderRadius: 3, flexShrink: 0,
+                    background: objDotColor(selectedObject.color),
+                    border: '1px solid var(--be-border-2)'
+                  }} />
+                </div>
+
+                {/* Per-face colors — cube */}
+                {selectedObject.kind === 'cube' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--be-text-dim)' }}>Face Colors</span>
+                    {(['yPos','yNeg','xNeg','xPos','zPos','zNeg'] as const).map((fk) => {
+                      const faceHex = selectedObject.faceColors[fk]
+                        ? vec3ToHex(selectedObject.faceColors[fk]!)
+                        : vec3ToHex(selectedObject.color)
+                      const hasOverride = !!selectedObject.faceColors[fk]
+                      return (
+                        <div key={fk} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: '0.62rem', color: 'var(--be-text-dim)', width: 52, flexShrink: 0 }}>
+                            {CUBE_FACE_LABELS[fk].replace(' face', '')}
+                          </span>
+                          <input
+                            type="color"
+                            value={faceHex}
+                            style={{ width: 28, height: 20, padding: 1, borderRadius: 3, border: `1px solid ${hasOverride ? 'var(--be-accent)' : 'var(--be-border-2)'}`, cursor: 'pointer', background: 'var(--be-bg)' }}
+                            onChange={(e) => updateSelected({
+                              faceColors: { ...selectedObject.faceColors, [fk]: hexToVec3(e.target.value) }
+                            }, false)}
+                            onBlur={(e) => updateSelected({
+                              faceColors: { ...selectedObject.faceColors, [fk]: hexToVec3(e.target.value) }
+                            })}
+                          />
+                          {hasOverride && (
+                            <button
+                              type="button"
+                              title="Reset to object color"
+                              style={{ padding: '0 4px', fontSize: '0.6rem', border: 'none', background: 'transparent', color: 'var(--be-text-dim)', cursor: 'pointer' }}
+                              onClick={() => {
+                                const next = { ...selectedObject.faceColors }
+                                delete next[fk]
+                                updateSelected({ faceColors: next })
+                              }}
+                            >↺</button>
+                          )}
+                        </div>
+                      )
+                    })}
+                    <button
+                      type="button"
+                      style={{ fontSize: '0.6rem', padding: '2px 6px', marginTop: 2, alignSelf: 'flex-start' }}
+                      onClick={() => updateSelected({ faceColors: {} })}
+                    >Reset all faces</button>
+                  </div>
+                )}
+
+                {/* Per-face colors — prism */}
+                {selectedObject.kind === 'prism' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--be-text-dim)' }}>Face Colors</span>
+                    {['top', 'bottom', 'side0', 'side1', 'side2'].map((fk) => {
+                      const faceHex = selectedObject.faceColors[fk]
+                        ? vec3ToHex(selectedObject.faceColors[fk]!)
+                        : vec3ToHex(selectedObject.color)
+                      const hasOverride = !!selectedObject.faceColors[fk]
+                      const label = fk === 'top' ? 'Top' : fk === 'bottom' ? 'Bottom' : `Side ${parseInt(fk.replace('side','')) + 1}`
+                      return (
+                        <div key={fk} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: '0.62rem', color: 'var(--be-text-dim)', width: 52, flexShrink: 0 }}>
+                            {label}
+                          </span>
+                          <input
+                            type="color"
+                            value={faceHex}
+                            style={{ width: 28, height: 20, padding: 1, borderRadius: 3, border: `1px solid ${hasOverride ? 'var(--be-accent)' : 'var(--be-border-2)'}`, cursor: 'pointer', background: 'var(--be-bg)' }}
+                            onChange={(e) => updateSelected({
+                              faceColors: { ...selectedObject.faceColors, [fk]: hexToVec3(e.target.value) }
+                            }, false)}
+                            onBlur={(e) => updateSelected({
+                              faceColors: { ...selectedObject.faceColors, [fk]: hexToVec3(e.target.value) }
+                            })}
+                          />
+                          {hasOverride && (
+                            <button
+                              type="button"
+                              title="Reset to object color"
+                              style={{ padding: '0 4px', fontSize: '0.6rem', border: 'none', background: 'transparent', color: 'var(--be-text-dim)', cursor: 'pointer' }}
+                              onClick={() => {
+                                const next = { ...selectedObject.faceColors }
+                                delete next[fk]
+                                updateSelected({ faceColors: next })
+                              }}
+                            >↺</button>
+                          )}
+                        </div>
+                      )
+                    })}
+                    <button
+                      type="button"
+                      style={{ fontSize: '0.6rem', padding: '2px 6px', marginTop: 2, alignSelf: 'flex-start' }}
+                      onClick={() => updateSelected({ faceColors: {} })}
+                    >Reset all faces</button>
+                  </div>
+                )}
+
+                {/* Favorite color slots */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--be-text-dim)' }}>
+                    Favorites <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(left-click slot to save)</span>
+                  </span>
+                  <div style={{ display: 'flex', gap: 5 }}>
+                    {favoriteColors.map((hex, i) => (
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                        <button
+                          type="button"
+                          title={hex ? `Slot ${i+1}: ${hex} — left-click to apply, right-click to save` : `Slot ${i+1}: empty — left-click to save current color`}
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: 4,
+                            border: hex ? '2px solid var(--be-border-2)' : '2px dashed var(--be-border-2)',
+                            background: hex ?? 'var(--be-surface-3)',
+                            cursor: 'pointer',
+                            padding: 0,
+                            position: 'relative',
+                            transition: 'border-color 100ms, transform 80ms',
+                          }}
+                          onClick={() => {
+                            if (hex) {
+                              applyFavorite(hex)
+                              setCopyStatus(`Applied slot ${i + 1}`)
+                            } else {
+                              saveFavorite(i)
+                            }
+                          }}
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            saveFavorite(i)
+                          }}
+                        >
+                          {!hex && <span style={{ fontSize: '0.55rem', color: 'var(--be-text-dim)' }}>{i+1}</span>}
+                        </button>
+                        <button
+                          type="button"
+                          title="Save current color here"
+                          style={{ fontSize: '0.48rem', padding: '1px 2px', border: 'none', background: 'transparent', color: 'var(--be-text-dim)', cursor: 'pointer', lineHeight: 1 }}
+                          onClick={() => saveFavorite(i)}
+                        >save</button>
+                      </div>
+                    ))}
+                  </div>
+                  <span style={{ fontSize: '0.58rem', color: 'var(--be-text-dim)' }}>
+                    Click filled slot → apply · Click empty / "save" → store
+                  </span>
+                </div>
+
+              </div>
+            ) : (
+              <div style={{ padding: '10px 12px', fontSize: '0.7rem', color: 'var(--be-text-dim)' }}>
+                Select an object to edit colors.
+              </div>
+            )}
           </div>
         </aside>
 

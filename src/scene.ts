@@ -77,6 +77,7 @@ export interface SceneObject {
   depth: number
   facePulls: Partial<Record<CubeFaceKey, number>>
   edgePulls: Partial<Record<CubeEdgeKey, number>>
+  faceColors: Partial<Record<string, [number, number, number]>>
   holes: HoleData[]
   prismMesh?: PrismMesh;      // custom mesh after editing
   prismParams?: {             // parameters for regeneration
@@ -322,6 +323,7 @@ function baseSceneObject(kind: PrimitiveKind, index: number): SceneObject {
     depth: 1.0,
     facePulls: {},
     edgePulls: {},
+    faceColors: {},
     holes: [],
   }
 }
@@ -435,6 +437,7 @@ export function copySceneObject(source: SceneObject): SceneObject {
     color: [...source.color] as [number, number, number],
     facePulls: { ...source.facePulls },
     edgePulls: { ...source.edgePulls },
+    faceColors: { ...source.faceColors },
     holes: source.holes.map(h => ({ ...h, position: [...h.position] as [number, number, number] })),
     prismMesh: source.prismMesh ? JSON.parse(JSON.stringify(source.prismMesh)) : undefined,
     prismParams: source.prismParams ? { ...source.prismParams } : undefined,
@@ -505,6 +508,9 @@ function hydrateSceneObject(
     depth: isFiniteNumber(rawRecord.depth) ? clamp(rawRecord.depth, 0.1) : base.depth,
     facePulls: sanitizePullMap(rawRecord.facePulls, CUBE_FACE_KEYS),
     edgePulls: sanitizePullMap(rawRecord.edgePulls, CUBE_EDGE_KEYS),
+    faceColors: (typeof rawRecord.faceColors === 'object' && rawRecord.faceColors !== null)
+      ? rawRecord.faceColors as Partial<Record<string, [number, number, number]>>
+      : {},
     holes: Array.isArray(rawRecord.holes) ? rawRecord.holes as HoleData[] : [],
     prismMesh: rawRecord.prismMesh && typeof rawRecord.prismMesh === 'object' 
       ? JSON.parse(JSON.stringify(rawRecord.prismMesh)) as PrismMesh 
