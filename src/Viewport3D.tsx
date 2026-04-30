@@ -129,7 +129,17 @@ function SelectableObject({
   const groupRef = useRef<THREE.Group>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [prismMesh, setPrismMesh] = useState<PrismMesh | null>(object.prismMesh ?? null)
-  const { geometry, scale } = getObjectRenderProps(object)
+  const { geometry, scale } = useMemo(() => getObjectRenderProps(object), [
+    object.kind, 
+    object.size, 
+    object.radius, 
+    object.height, 
+    object.width, 
+    object.depth, 
+    object.facePulls, 
+    object.edgePulls,
+    object.prismParams
+  ])
   const shouldShowPrismGizmo = selected && object.kind === 'prism' && (editMode === 'face' || editMode === 'edge')
 
   useEffect(() => {
@@ -140,6 +150,36 @@ function SelectableObject({
     }
     setPrismMesh(generatePrismMesh(object.prismParams?.sides ?? 3, object.height, object.radius))
   }, [object])
+
+  const materials = useMemo(() => {
+    if (object.kind !== 'cube') return null
+    const getColor = (face: string) => {
+      const c = object.faceColors?.[face] ?? object.color
+      return new THREE.Color(c[0], c[1], c[2])
+    }
+    const getEmissive = (face: string) => {
+      if (!selected) return 0x000000
+      if (editMode === 'face' && selectedFace === face) return 0x554422
+      return 0x332200
+    }
+    // Three.js BoxGeometry material order: px, nx, py, ny, pz, nz
+    return [
+      new THREE.MeshStandardMaterial({ color: getColor('xPos'), emissive: getEmissive('xPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+      new THREE.MeshStandardMaterial({ color: getColor('xNeg'), emissive: getEmissive('xNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+      new THREE.MeshStandardMaterial({ color: getColor('yPos'), emissive: getEmissive('yPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+      new THREE.MeshStandardMaterial({ color: getColor('yNeg'), emissive: getEmissive('yNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+      new THREE.MeshStandardMaterial({ color: getColor('zPos'), emissive: getEmissive('zPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+      new THREE.MeshStandardMaterial({ color: getColor('zNeg'), emissive: getEmissive('zNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+    ]
+  }, [object.kind, object.color, object.faceColors, selected, selectedFace, editMode])
+
+  useEffect(() => {
+    return () => {
+      if (materials) {
+        materials.forEach((m) => m.dispose())
+      }
+    }
+  }, [materials])
 
   const persistTransform = () => {
     const group = groupRef.current
@@ -221,16 +261,26 @@ function SelectableObject({
       position={object.position}
       rotation={object.rotation.map((r) => r * Math.PI / 180) as [number, number, number]}
       scale={object.scale}
-      onClick={(e) => { e.stopPropagation(); onSelect(object.id) }}
+      onClick={(e) => {
+        e.stopPropagation()
+        onSelect(object.id)
+        
+        // Face selection via Raycasting (faceIndex)
+        if (object.kind === 'cube' && editMode === 'face' && e.faceIndex !== undefined && e.faceIndex !== null) {
+          const faceGroup = Math.floor(e.faceIndex / 2)
+          const keys = ['xPos', 'xNeg', 'yPos', 'yNeg', 'zPos', 'zNeg'] as const
+          onSelectFace(keys[faceGroup])
+        }
+      }}
     >
-      <mesh scale={scale}>
+      <mesh scale={scale} material={materials || undefined}>
         {geometry}
-        <meshStandardMaterial color={object.color} emissive={selected ? 0x332200 : 0x000000} />
+        {!materials && <meshStandardMaterial color={object.color} emissive={selected ? 0x332200 : 0x000000} polygonOffset={true} polygonOffsetFactor={1} polygonOffsetUnits={1} />}
       </mesh>
       {selected && !shouldShowPrismGizmo && (
         <mesh scale={[1.05, 1.05, 1.05]}>
           {geometry}
-          <meshBasicMaterial color="#ffaa44" transparent opacity={0.25} side={THREE.BackSide} />
+          <meshBasicMaterial color="#ffaa44" transparent opacity={0.15} side={THREE.BackSide} depthWrite={false} />
         </mesh>
       )}
       {faceMeshes}

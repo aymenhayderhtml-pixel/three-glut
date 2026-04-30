@@ -361,6 +361,14 @@ export function createSceneObject(kind: PrimitiveKind, index: number): SceneObje
         ...object,
         size: 1.15,
         scale: [1.2, 1.0, 0.9] as [number, number, number],
+        faceColors: {
+          yPos: object.color,
+          yNeg: object.color,
+          xNeg: object.color,
+          xPos: object.color,
+          zPos: object.color,
+          zNeg: object.color,
+        }
       }
     case 'sphere':
       return {
@@ -406,6 +414,13 @@ export function createSceneObject(kind: PrimitiveKind, index: number): SceneObje
         height: 1.6,
         sides: 3,
         segments: 1,
+        faceColors: {
+          top: object.color,
+          bottom: object.color,
+          side0: object.color,
+          side1: object.color,
+          side2: object.color,
+        },
         prismParams: {
           sides: 3,
           radius: 0.9,

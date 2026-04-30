@@ -26,48 +26,41 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
       const cz = (ext.zPos - ext.zNeg) / 2;
 
       const fc = object.faceColors ?? {}
-      const hasAnyFaceColor = Object.keys(fc).length > 0
-
-      if (!hasAnyFaceColor) {
-        // Fast path: uniform color, use glutSolidCube
-        if (Math.abs(cx) > 0.001 || Math.abs(cz) > 0.001) {
-          lines.push(`  glTranslatef(${toF(cx)}, 0.0f, ${toF(cz)});`);
-        }
-        lines.push(`  glScalef(${toF(sx)}, ${toF(sy)}, ${toF(sz)});`)
-        lines.push(`  glutSolidCube(1.0);`)
-      } else {
-        // Per-face colors: emit GL_QUADS manually
-        const hx = sx / 2, hy = sy / 2, hz = sz / 2
-        const faceColor = (key: string) => {
-          const c = fc[key] ?? object.color
-          return `  glColor3f(${toF(c[0])}, ${toF(c[1])}, ${toF(c[2])});`
-        }
-        if (Math.abs(cx) > 0.001 || Math.abs(cz) > 0.001) {
-          lines.push(`  glTranslatef(${toF(cx)}, 0.0f, ${toF(cz)});`);
-        }
-        lines.push(`  glBegin(GL_QUADS);`)
-        // Top (yPos)
-        lines.push(faceColor('yPos'))
-        lines.push(`  glNormal3f(0,1,0); glVertex3f(${toF(-hx)},${toF(hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(hz)});`)
-        // Bottom (yNeg)
-        lines.push(faceColor('yNeg'))
-        lines.push(`  glNormal3f(0,-1,0); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(-hz)});`)
-        // Front (zPos)
-        lines.push(faceColor('zPos'))
-        lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(hz)});`)
-        // Back (zNeg)
-        lines.push(faceColor('zNeg'))
-        lines.push(`  glNormal3f(0,0,-1); glVertex3f(${toF(hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(-hz)});`)
-        // Right (xPos)
-        lines.push(faceColor('xPos'))
-        lines.push(`  glNormal3f(1,0,0); glVertex3f(${toF(hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(hz)});`)
-        // Left (xNeg)
-        lines.push(faceColor('xNeg'))
-        lines.push(`  glNormal3f(-1,0,0); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(-hz)});`)
-        lines.push(`  glEnd();`)
-        // Restore object color after
-        lines.push(`  glColor3f(${toF(object.color[0])}, ${toF(object.color[1])}, ${toF(object.color[2])});`)
+      
+      // Manual quad rendering (always used for robustness)
+      const hx = sx / 2, hy = sy / 2, hz = sz / 2
+      const faceColor = (key: string) => {
+        const c = fc[key] ?? object.color
+        return `  glColor3f(${toF(c[0])}, ${toF(c[1])}, ${toF(c[2])});`
       }
+      
+      if (Math.abs(cx) > 0.001 || Math.abs(cz) > 0.001) {
+        lines.push(`  glTranslatef(${toF(cx)}, 0.0f, ${toF(cz)});`);
+      }
+
+      lines.push(`  glBegin(GL_QUADS);`)
+      // Top (yPos)
+      lines.push(faceColor('yPos'))
+      lines.push(`  glNormal3f(0,1,0); glVertex3f(${toF(-hx)},${toF(hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(hz)});`)
+      // Bottom (yNeg)
+      lines.push(faceColor('yNeg'))
+      lines.push(`  glNormal3f(0,-1,0); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(-hz)});`)
+      // Front (zPos)
+      lines.push(faceColor('zPos'))
+      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(hz)});`)
+      // Back (zNeg)
+      lines.push(faceColor('zNeg'))
+      lines.push(`  glNormal3f(0,0,-1); glVertex3f(${toF(hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(-hz)});`)
+      // Right (xPos)
+      lines.push(faceColor('xPos'))
+      lines.push(`  glNormal3f(1,0,0); glVertex3f(${toF(hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(hz)});`)
+      // Left (xNeg)
+      lines.push(faceColor('xNeg'))
+      lines.push(`  glNormal3f(-1,0,0); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(-hz)});`)
+      lines.push(`  glEnd();`)
+      
+      // Restore object color after
+      lines.push(`  glColor3f(${toF(object.color[0])}, ${toF(object.color[1])}, ${toF(object.color[2])});`)
       break
     }
     case 'sphere': {

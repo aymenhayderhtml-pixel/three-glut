@@ -1172,10 +1172,10 @@ function App() {
                             value={faceHex}
                             style={{ width: 28, height: 20, padding: 1, borderRadius: 3, border: `1px solid ${hasOverride ? 'var(--be-accent)' : 'var(--be-border-2)'}`, cursor: 'pointer', background: 'var(--be-bg)' }}
                             onChange={(e) => updateSelected({
-                              faceColors: { ...selectedObject.faceColors, [fk]: hexToVec3(e.target.value) }
+                              faceColors: { ...(selectedObject.faceColors || {}), [fk]: hexToVec3(e.target.value) }
                             }, false)}
                             onBlur={(e) => updateSelected({
-                              faceColors: { ...selectedObject.faceColors, [fk]: hexToVec3(e.target.value) }
+                              faceColors: { ...(selectedObject.faceColors || {}), [fk]: hexToVec3(e.target.value) }
                             })}
                           />
                           {hasOverride && (
@@ -1221,10 +1221,10 @@ function App() {
                             value={faceHex}
                             style={{ width: 28, height: 20, padding: 1, borderRadius: 3, border: `1px solid ${hasOverride ? 'var(--be-accent)' : 'var(--be-border-2)'}`, cursor: 'pointer', background: 'var(--be-bg)' }}
                             onChange={(e) => updateSelected({
-                              faceColors: { ...selectedObject.faceColors, [fk]: hexToVec3(e.target.value) }
+                              faceColors: { ...(selectedObject.faceColors || {}), [fk]: hexToVec3(e.target.value) }
                             }, false)}
                             onBlur={(e) => updateSelected({
-                              faceColors: { ...selectedObject.faceColors, [fk]: hexToVec3(e.target.value) }
+                              faceColors: { ...(selectedObject.faceColors || {}), [fk]: hexToVec3(e.target.value) }
                             })}
                           />
                           {hasOverride && (
