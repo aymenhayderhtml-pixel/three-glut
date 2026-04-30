@@ -435,11 +435,12 @@ export function cloneSceneObject(source: SceneObject): SceneObject {
     ...source,
     id: makeId(),
     name: `${source.name} Copy`,
-    position: [
-      round(source.position[0] + 0.5),
-      round(source.position[1] + 0.35),
-      round(source.position[2] + 0.35),
-    ] as [number, number, number],
+    position: [...source.position] as [number, number, number],
+    rotation: [...source.rotation] as [number, number, number],
+    scale: [...source.scale] as [number, number, number],
+    faceColors: { ...(source.faceColors || {}) },
+    facePulls: { ...(source.facePulls || {}) },
+    edgePulls: { ...(source.edgePulls || {}) },
   }
 }
 

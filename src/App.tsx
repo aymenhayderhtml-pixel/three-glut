@@ -22,6 +22,7 @@ import {
   copySceneObjects,
   createSceneDocument,
   createSceneObject,
+  getObjectDimensions,
   hexToVec3,
   loadStoredSceneDocument,
   parseSceneDocument,
@@ -214,6 +215,10 @@ function App() {
   const [lastMeasuredId, setLastMeasuredId] = useState<string | null>(null)
   const [glutImportCode, setGlutImportCode] = useState<string>('')
   const [glutImportTab, setGlutImportTab] = useState<'export' | 'import'>('export')
+  const [arrayAxis, setArrayAxis] = useState<'x' | 'y' | 'z'>('x')
+  const [arrayCount, setArrayCount] = useState(3)
+  const [arrayGap, setArrayGap] = useState(0.5)
+  const [moveStep, setMoveStep] = useState(0.5)
   const [favoriteColors, setFavoriteColors] = useState<(string | null)[]>(() => {
     try {
       const stored = localStorage.getItem('three-glut-fav-colors')
@@ -222,20 +227,6 @@ function App() {
     return [null, null, null, null, null]
   })
 
-  const saveFavorite = (index: number) => {
-    if (!selectedObject) return
-    const hex = vec3ToHex(selectedObject.color)
-    const next = [...favoriteColors]
-    next[index] = hex
-    setFavoriteColors(next)
-    localStorage.setItem('three-glut-fav-colors', JSON.stringify(next))
-    setCopyStatus(`Saved to slot ${index + 1}`)
-  }
-
-  const applyFavorite = (hex: string) => {
-    if (!selectedObject) return
-    updateSelected({ color: hexToVec3(hex) })
-  }
 
   const activeScene = scenes[activeSpace]
   const activeSelectionId = selection[activeSpace]
@@ -431,6 +422,56 @@ function App() {
     }
   }
 
+  const saveFavorite = (index: number) => {
+    if (!selectedObject) return
+    const hex = vec3ToHex(selectedObject.color)
+    const next = [...favoriteColors]
+    next[index] = hex
+    setFavoriteColors(next)
+    localStorage.setItem('three-glut-fav-colors', JSON.stringify(next))
+    setCopyStatus(`Saved to slot ${index + 1}`)
+  }
+
+  const createArray = () => {
+    if (!selectedObject) return
+    
+    const axisIndex = arrayAxis === 'x' ? 0 : arrayAxis === 'y' ? 1 : 2
+    const copies: SceneObject[] = []
+    
+    // Create (count - 1) copies
+    const copiesToCreate = Math.max(0, arrayCount - 1)
+    
+    for (let i = 0; i < copiesToCreate; i++) {
+      const dim = getObjectDimensions(selectedObject)
+      const offset = (dim[axisIndex] + arrayGap) * (i + 1)
+      
+      const copy = cloneSceneObject(selectedObject)
+      copy.name = `${selectedObject.name} Array ${i + 1}`
+      copy.position[axisIndex] += offset
+      copies.push(copy)
+    }
+    
+    if (copies.length > 0) {
+      commitSceneChange(() => {
+        updateSceneObjects(activeSpace, (current) => [...current, ...copies])
+      })
+      setCopyStatus(`Created array of ${arrayCount} objects`)
+    }
+  }
+
+  const moveSelected = useCallback((axis: 'x' | 'y' | 'z', direction: 1 | -1, step = 0.5) => {
+    if (!selectedObject) return
+    const axisIndex = axis === 'x' ? 0 : axis === 'y' ? 1 : 2
+    const next = [...selectedObject.position] as [number, number, number]
+    next[axisIndex] = roundTo(next[axisIndex] + (direction * step))
+    updateSelected({ position: next })
+  }, [selectedObject, updateSelected])
+
+  const applyFavorite = (hex: string) => {
+    if (!selectedObject) return
+    updateSelected({ color: hexToVec3(hex) })
+  }
+
   const updateSelectedVector = (
     key: 'position' | 'rotation' | 'scale',
     index: number,
@@ -539,6 +580,7 @@ function App() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handlePullAction])
+
 
   const addObject = (kind: PrimitiveKind) => {
     const nextObject = createSceneObject(kind, activeScene.length)
@@ -1438,8 +1480,90 @@ function App() {
                 </Field>
 
                 {renderVectorFieldGroup('Position', 'position', selectedObject.position, 0.1)}
+
+                {/* Move Gizmo UI */}
+                {selectedObject.space === '3d' && (
+                  <div style={{ padding: '0 8px 10px', display: 'flex', flexDirection: 'column', gap: 6, borderBottom: '1px solid var(--be-border-1)', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--be-text-dim)', textTransform: 'uppercase' }}>Quick Move</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ fontSize: '0.55rem', color: 'var(--be-text-dim)' }}>Step:</span>
+                        <input 
+                          type="number" 
+                          step={0.1} 
+                          min={0.1}
+                          style={{ width: 35, fontSize: '0.65rem', padding: '1px 2px', background: 'var(--be-bg)', color: 'var(--be-text)', border: '1px solid var(--be-border-2)' }}
+                          value={moveStep}
+                          onChange={(e) => setMoveStep(parseFloat(e.target.value) || 0.1)}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+                      <button className="gizmo-btn" style={{ color: 'var(--be-accent)' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('x', -1, moveStep) }}>← X-</button>
+                      <button className="gizmo-btn" style={{ color: 'var(--be-accent)' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('y', 1, moveStep) }}>↑ Y+</button>
+                      <button className="gizmo-btn" style={{ color: 'var(--be-accent)' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('x', 1, moveStep) }}>→ X+</button>
+                      
+                      <button className="gizmo-btn" style={{ color: '#4488ff' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('z', -1, moveStep) }}>W (Z-)</button>
+                      <button className="gizmo-btn" style={{ color: 'var(--be-accent)' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('y', -1, moveStep) }}>↓ Y-</button>
+                      <button className="gizmo-btn" style={{ color: '#4488ff' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('z', 1, moveStep) }}>S (Z+)</button>
+                    </div>
+                  </div>
+                )}
+
                 {renderVectorFieldGroup('Rotation', 'rotation', selectedObject.rotation, 1)}
                 {renderVectorFieldGroup('Scale',    'scale',    selectedObject.scale,    0.1)}
+
+                {/* Array tool section */}
+                {selectedObject.space === '3d' && (
+                  <div className="be-sub-section" style={{ marginTop: 15, paddingTop: 10, borderTop: '1px solid var(--be-border-1)' }}>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 700, marginBottom: 8, color: 'var(--be-text-dim)', textTransform: 'uppercase' }}>Array / Duplicate</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontSize: '0.6rem', display: 'block', marginBottom: 2 }}>Axis</span>
+                          <select 
+                            style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', background: 'var(--be-bg)', color: 'var(--be-text)', border: '1px solid var(--be-border-2)' }}
+                            value={arrayAxis}
+                            onChange={(e) => setArrayAxis(e.target.value as any)}
+                          >
+                            <option value="x">X Axis</option>
+                            <option value="y">Y Axis</option>
+                            <option value="z">Z Axis</option>
+                          </select>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontSize: '0.6rem', display: 'block', marginBottom: 2 }}>Count</span>
+                          <input 
+                            type="number" 
+                            style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', background: 'var(--be-bg)', color: 'var(--be-text)', border: '1px solid var(--be-border-2)' }}
+                            min={2} 
+                            max={50}
+                            value={arrayCount}
+                            onChange={(e) => setArrayCount(parseInt(e.target.value) || 1)}
+                          />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontSize: '0.6rem', display: 'block', marginBottom: 2 }}>Gap</span>
+                          <input 
+                            type="number" 
+                            step={0.1}
+                            style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', background: 'var(--be-bg)', color: 'var(--be-text)', border: '1px solid var(--be-border-2)' }}
+                            value={arrayGap}
+                            onChange={(e) => setArrayGap(parseFloat(e.target.value) || 0)}
+                          />
+                        </div>
+                      </div>
+                      <button 
+                        type="button" 
+                        style={{ marginTop: 4, padding: '4px 8px', fontSize: '0.7rem', cursor: 'pointer', background: 'var(--be-accent)', color: 'white', border: 'none', borderRadius: 4, fontWeight: 700 }}
+                        onClick={createArray}
+                      >
+                        Create Array
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* 2D-specific fields */}
                 {selectedObject.space === '2d' && (<>

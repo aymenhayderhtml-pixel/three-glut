@@ -327,6 +327,85 @@ function SelectableObject({
   )
 }
 
+import { useThree } from '@react-three/fiber'
+
+function CameraHandler({ enabled }: { enabled: boolean }) {
+  const { camera } = useThree()
+  const controlsRef = useRef<any>(null)
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!enabled || !controlsRef.current) return
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
+
+      const step = 0.5
+      const forward = new THREE.Vector3()
+      camera.getWorldDirection(forward)
+      
+      // Calculate horizontal forward (ignore Y for W/S movement to feel like a walk)
+      const horizontalForward = forward.clone()
+      horizontalForward.y = 0
+      horizontalForward.normalize()
+
+      const right = new THREE.Vector3()
+      right.crossVectors(camera.up, forward).negate()
+      right.y = 0
+      right.normalize()
+
+      switch (e.key.toLowerCase()) {
+        case 'w':
+          e.preventDefault()
+          camera.position.addScaledVector(horizontalForward, step)
+          controlsRef.current.target.addScaledVector(horizontalForward, step)
+          break
+        case 's':
+          e.preventDefault()
+          camera.position.addScaledVector(horizontalForward, -step)
+          controlsRef.current.target.addScaledVector(horizontalForward, -step)
+          break
+        case 'a':
+          e.preventDefault()
+          camera.position.addScaledVector(right, -step)
+          controlsRef.current.target.addScaledVector(right, -step)
+          break
+        case 'd':
+          e.preventDefault()
+          camera.position.addScaledVector(right, step)
+          controlsRef.current.target.addScaledVector(right, step)
+          break
+        case 'q':
+        case 'arrowup':
+          e.preventDefault()
+          camera.position.y += step
+          controlsRef.current.target.y += step
+          break
+        case 'e':
+        case 'arrowdown':
+          e.preventDefault()
+          camera.position.y -= step
+          controlsRef.current.target.y -= step
+          break
+      }
+      controlsRef.current.update()
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [camera, enabled])
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      makeDefault
+      enableDamping
+      dampingFactor={0.05}
+      minDistance={0.5}
+      maxDistance={200}
+      enabled={enabled}
+    />
+  )
+}
+
 export default function Viewport3D({
   objects,
   selectedId,
@@ -345,12 +424,16 @@ export default function Viewport3D({
   const selectedObject = objects.find((obj: SceneObject) => obj.id === selectedId)
   const disableOrbit = selectedObject?.kind === 'prism' && (editMode === 'face' || editMode === 'edge')
   const [transformDragging, setTransformDragging] = useState(false)
+  const isOrbitEnabled = !disableOrbit && !transformDragging
+
   return (
     <div style={{ width: '100%', height: '100%', background: '#111' }}>
       <Canvas camera={{ position: [5, 5, 5], fov: 50 }}>
         <ambientLight intensity={0.4} />
         <directionalLight position={[5, 10, 5]} intensity={0.8} />
-        <OrbitControls enabled={!disableOrbit && !transformDragging} />
+        
+        <CameraHandler enabled={isOrbitEnabled} />
+
         <group position={[0, -3.5, 0]}>
           <gridHelper args={[20, 20]} />
         </group>

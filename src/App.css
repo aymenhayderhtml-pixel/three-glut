@@ -952,3 +952,27 @@ button:disabled { cursor: not-allowed; opacity: 0.32; }
   background: transparent;
   border-color: transparent;
 }
+/* Movement Gizmo Buttons */
+.gizmo-btn {
+  background: var(--be-surface-3);
+  border: 1px solid var(--be-border-2);
+  border-radius: 4px;
+  padding: 4px 2px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 100ms;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gizmo-btn:hover {
+  background: var(--be-surface-highlight);
+  border-color: var(--be-accent);
+}
+
+.gizmo-btn:active {
+  transform: translateY(1px);
+  filter: brightness(0.9);
+}
