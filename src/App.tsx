@@ -405,9 +405,22 @@ function App() {
 
     const apply = () => {
       updateSceneObjects(activeSpace, (current) =>
-        current.map((object) =>
-          object.id === selectedObject.id ? { ...object, ...patch } : object,
-        ),
+        current.map((object) => {
+          if (object.id !== selectedObject.id) return object
+          return {
+            ...object,
+            ...patch,
+            faceColors: patch.faceColors
+              ? { ...(object.faceColors || {}), ...patch.faceColors }
+              : object.faceColors,
+            facePulls: patch.facePulls
+              ? { ...(object.facePulls || {}), ...patch.facePulls }
+              : object.facePulls,
+            edgePulls: patch.edgePulls
+              ? { ...(object.edgePulls || {}), ...patch.edgePulls }
+              : object.edgePulls,
+          }
+        }),
       )
     }
 
@@ -459,10 +472,7 @@ function App() {
 
     updateSelected(
       {
-        facePulls: {
-          ...selectedObject.facePulls,
-          [faceKey]: roundTo(value),
-        },
+        facePulls: { [faceKey]: roundTo(value) },
       },
       recordHistory,
     )
@@ -479,10 +489,7 @@ function App() {
 
     updateSelected(
       {
-        edgePulls: {
-          ...selectedObject.edgePulls,
-          [edgeKey]: roundTo(value),
-        },
+        edgePulls: { [edgeKey]: roundTo(value) },
       },
       recordHistory,
     )
@@ -1136,19 +1143,39 @@ function App() {
             {selectedObject ? (
               <div style={{ padding: '6px 10px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-                {/* Global object color */}
+                {/* Global object color / Selected Face color */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', flex: 1 }}>Object</span>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', flex: 1 }}>
+                    {effectiveSelectedCubeFace ? `Face: ${CUBE_FACE_LABELS[effectiveSelectedCubeFace].replace(' face','')}` : 'Object'}
+                  </span>
                   <input
                     type="color"
-                    value={vec3ToHex(selectedObject.color)}
+                    value={vec3ToHex(effectiveSelectedCubeFace && selectedObject.faceColors?.[effectiveSelectedCubeFace] 
+                      ? selectedObject.faceColors[effectiveSelectedCubeFace]! 
+                      : selectedObject.color)}
                     style={{ width: 32, height: 22, padding: 1, borderRadius: 4, border: '1px solid var(--be-border-2)', cursor: 'pointer', background: 'var(--be-bg)' }}
-                    onChange={(e) => updateSelected({ color: hexToVec3(e.target.value) }, false)}
-                    onBlur={(e) => updateSelected({ color: hexToVec3(e.target.value) })}
+                    onChange={(e) => {
+                      const color = hexToVec3(e.target.value);
+                      if (effectiveSelectedCubeFace) {
+                        updateSelected({ faceColors: { [effectiveSelectedCubeFace]: color } }, false);
+                      } else {
+                        updateSelected({ color }, false);
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const color = hexToVec3(e.target.value);
+                      if (effectiveSelectedCubeFace) {
+                        updateSelected({ faceColors: { [effectiveSelectedCubeFace]: color } });
+                      } else {
+                        updateSelected({ color });
+                      }
+                    }}
                   />
                   <div style={{
                     width: 18, height: 18, borderRadius: 3, flexShrink: 0,
-                    background: objDotColor(selectedObject.color),
+                    background: objDotColor(effectiveSelectedCubeFace && selectedObject.faceColors?.[effectiveSelectedCubeFace] 
+                      ? selectedObject.faceColors[effectiveSelectedCubeFace]! 
+                      : selectedObject.color),
                     border: '1px solid var(--be-border-2)'
                   }} />
                 </div>
@@ -1172,10 +1199,10 @@ function App() {
                             value={faceHex}
                             style={{ width: 28, height: 20, padding: 1, borderRadius: 3, border: `1px solid ${hasOverride ? 'var(--be-accent)' : 'var(--be-border-2)'}`, cursor: 'pointer', background: 'var(--be-bg)' }}
                             onChange={(e) => updateSelected({
-                              faceColors: { ...(selectedObject.faceColors || {}), [fk]: hexToVec3(e.target.value) }
+                              faceColors: { [fk]: hexToVec3(e.target.value) }
                             }, false)}
                             onBlur={(e) => updateSelected({
-                              faceColors: { ...(selectedObject.faceColors || {}), [fk]: hexToVec3(e.target.value) }
+                              faceColors: { [fk]: hexToVec3(e.target.value) }
                             })}
                           />
                           {hasOverride && (
@@ -1221,10 +1248,10 @@ function App() {
                             value={faceHex}
                             style={{ width: 28, height: 20, padding: 1, borderRadius: 3, border: `1px solid ${hasOverride ? 'var(--be-accent)' : 'var(--be-border-2)'}`, cursor: 'pointer', background: 'var(--be-bg)' }}
                             onChange={(e) => updateSelected({
-                              faceColors: { ...(selectedObject.faceColors || {}), [fk]: hexToVec3(e.target.value) }
+                              faceColors: { [fk]: hexToVec3(e.target.value) }
                             }, false)}
                             onBlur={(e) => updateSelected({
-                              faceColors: { ...(selectedObject.faceColors || {}), [fk]: hexToVec3(e.target.value) }
+                              faceColors: { [fk]: hexToVec3(e.target.value) }
                             })}
                           />
                           {hasOverride && (
