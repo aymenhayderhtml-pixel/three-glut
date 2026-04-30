@@ -47,6 +47,65 @@ function getObjectRenderProps(object: SceneObject) {
   return { geometry, scale }
 }
 
+function WindowObject({ object, selected }: { object: SceneObject; selected: boolean }) {
+  const W = object.width
+  const H = object.height
+  const B = object.borderThickness ?? 0.12
+  const fc = object.frameColor ?? ([0.45, 0.32, 0.22] as [number,number,number])
+  const gc = object.color
+  const frameHex = `rgb(${Math.round(fc[0]*255)},${Math.round(fc[1]*255)},${Math.round(fc[2]*255)})`
+  const glassHex = `rgb(${Math.round(gc[0]*255)},${Math.round(gc[1]*255)},${Math.round(gc[2]*255)})`
+  const glassW = Math.max(0.01, W - B * 2)
+  const glassH = Math.max(0.01, H - B * 2)
+  const selEmissive = selected ? 0x332200 : 0x000000
+
+  return (
+    <>
+      {/* Glass panel */}
+      <mesh position={[0, 0, 0]}>
+        <planeGeometry args={[glassW, glassH]} />
+        <meshStandardMaterial
+          color={glassHex}
+          transparent
+          opacity={object.glassOpacity ?? 0.35}
+          side={THREE.DoubleSide}
+          depthWrite={false}
+          emissive={selEmissive}
+        />
+      </mesh>
+
+      {/* Top border */}
+      <mesh position={[0, H / 2 - B / 2, 0.002]}>
+        <planeGeometry args={[W, B]} />
+        <meshStandardMaterial color={frameHex} side={THREE.DoubleSide} emissive={selEmissive} />
+      </mesh>
+      {/* Bottom border */}
+      <mesh position={[0, -(H / 2 - B / 2), 0.002]}>
+        <planeGeometry args={[W, B]} />
+        <meshStandardMaterial color={frameHex} side={THREE.DoubleSide} emissive={selEmissive} />
+      </mesh>
+      {/* Left border */}
+      <mesh position={[-(W / 2 - B / 2), 0, 0.002]}>
+        <planeGeometry args={[B, glassH]} />
+        <meshStandardMaterial color={frameHex} side={THREE.DoubleSide} emissive={selEmissive} />
+      </mesh>
+      {/* Right border */}
+      <mesh position={[W / 2 - B / 2, 0, 0.002]}>
+        <planeGeometry args={[B, glassH]} />
+        <meshStandardMaterial color={frameHex} side={THREE.DoubleSide} emissive={selEmissive} />
+      </mesh>
+
+      {/* Selection glow */}
+      {selected && (
+        <mesh position={[0, 0, -0.005]}>
+          <planeGeometry args={[W * 1.05, H * 1.05]} />
+          <meshBasicMaterial color="#ffaa44" transparent opacity={0.18} side={THREE.DoubleSide} depthWrite={false} />
+        </mesh>
+      )}
+    </>
+  )
+}
+
 function MeasureLabels({ object }: { object: SceneObject }) {
   const vertices = useMemo(() => getObjectVertices(object), [object])
   const dimensions = useMemo(() => getObjectDimensions(object), [object])
@@ -273,15 +332,21 @@ function SelectableObject({
         }
       }}
     >
-      <mesh scale={scale} material={materials || undefined}>
-        {geometry}
-        {!materials && <meshStandardMaterial color={object.color} emissive={selected ? 0x332200 : 0x000000} polygonOffset={true} polygonOffsetFactor={1} polygonOffsetUnits={1} />}
-      </mesh>
-      {selected && !shouldShowPrismGizmo && (
-        <mesh scale={[1.05, 1.05, 1.05]}>
-          {geometry}
-          <meshBasicMaterial color="#ffaa44" transparent opacity={0.15} side={THREE.BackSide} depthWrite={false} />
-        </mesh>
+      {object.kind === 'window' ? (
+        <WindowObject object={object} selected={selected} />
+      ) : (
+        <>
+          <mesh scale={scale} material={materials || undefined}>
+            {geometry}
+            {!materials && <meshStandardMaterial color={object.color} emissive={selected ? 0x332200 : 0x000000} polygonOffset={true} polygonOffsetFactor={1} polygonOffsetUnits={1} />}
+          </mesh>
+          {selected && !shouldShowPrismGizmo && (
+            <mesh scale={[1.05, 1.05, 1.05]}>
+              {geometry}
+              <meshBasicMaterial color="#ffaa44" transparent opacity={0.15} side={THREE.BackSide} depthWrite={false} />
+            </mesh>
+          )}
+        </>
       )}
       {faceMeshes}
       {edgeLines}

@@ -183,6 +183,34 @@ function Field({
   )
 }
 
+function CollapsibleSection({
+  title,
+  defaultOpen = true,
+  children,
+}: {
+  title: string
+  defaultOpen?: boolean
+  children: ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="be-section">
+      <button
+        type="button"
+        className="be-section-header be-section-toggle"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span>{title}</span>
+        <span className={`be-section-chevron${open ? ' open' : ''}`}>›</span>
+      </button>
+      <div className={`be-section-body${open ? ' open' : ''}`}>
+        <div>{children}</div>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const [bootstrap] = useState(getInitialState)
   const [activeSpace, setActiveSpace] = useState<Space>(bootstrap.activeSpace)
@@ -1138,50 +1166,47 @@ function App() {
 
         {/* ── LEFT PANEL ── */}
         <aside className="be-left-panel">
-          <div className="be-section">
-            <div className="be-section-header">Primitives</div>
-            <ul className="be-prim-list">
-              {SPACE_KINDS[activeSpace].map((kind) => (
-                <li
-                  key={kind}
-                  className="be-prim-item"
-                  onClick={() => addObject(kind)}
-                >
-                  <span className="be-prim-icon">{PRIM_ICONS[kind] ?? '□'}</span>
-                  {KIND_LABELS[kind]}
-                </li>
-              ))}
-            </ul>
-          </div>
+        <CollapsibleSection title="Primitives">
+          <ul className="be-prim-list">
+            {SPACE_KINDS[activeSpace].map((kind) => (
+              <li
+                key={kind}
+                className="be-prim-item"
+                onClick={() => addObject(kind)}
+              >
+                <span className="be-prim-icon">{PRIM_ICONS[kind] ?? '□'}</span>
+                {KIND_LABELS[kind]}
+              </li>
+            ))}
+          </ul>
+        </CollapsibleSection>
 
-          <div className="be-section">
-            <div className="be-section-header">Objects</div>
-            <ul className="be-obj-list">
-              {activeScene.map((obj) => (
-                <li
-                  key={obj.id}
-                  className={`be-obj-item${obj.id === activeSelectionId ? ' active' : ''}`}
-                >
-                  <span
-                    className="be-obj-dot"
-                    style={{ background: objDotColor(obj.color) }}
-                  />
-                  <span className="be-obj-name" onClick={() => selectObject(obj.id)}>
-                    {obj.name}
-                  </span>
-                  <button
-                    type="button"
-                    className="be-obj-delete"
-                    onClick={() => deleteObjectById(obj.id)}
-                  >×</button>
-                </li>
-              ))}
-            </ul>
-          </div>
+        <CollapsibleSection title="Objects">
+          <ul className="be-obj-list">
+            {activeScene.map((obj) => (
+              <li
+                key={obj.id}
+                className={`be-obj-item${obj.id === activeSelectionId ? ' active' : ''}`}
+              >
+                <span
+                  className="be-obj-dot"
+                  style={{ background: objDotColor(obj.color) }}
+                />
+                <span className="be-obj-name" onClick={() => selectObject(obj.id)}>
+                  {obj.name}
+                </span>
+                <button
+                  type="button"
+                  className="be-obj-delete"
+                  onClick={() => deleteObjectById(obj.id)}
+                >×</button>
+              </li>
+            ))}
+          </ul>
+        </CollapsibleSection>
 
-          {/* ── COLOR PANEL ── */}
-          <div className="be-section">
-            <div className="be-section-header">Colors</div>
+        {/* ── COLOR PANEL ── */}
+        <CollapsibleSection title="Colors">
             {selectedObject ? (
               <div style={{ padding: '6px 10px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
@@ -1376,8 +1401,8 @@ function App() {
                 Select an object to edit colors.
               </div>
             )}
-          </div>
-        </aside>
+        </CollapsibleSection>
+      </aside>
 
         {/* ── VIEWPORT ── */}
         <section className="be-viewport-wrap">
@@ -1446,16 +1471,7 @@ function App() {
         <aside className="be-right-panel">
           <div className="be-right-panel-inner">
             {/* INSPECTOR */}
-            <div className="be-section be-inspector-section">
-            <div className="be-section-header">
-              INSPECTOR
-              <span className="be-nothing-label">
-                {selectedObject
-                  ? `${KIND_LABELS[selectedObject.kind]}`
-                  : 'Nothing selected'}
-              </span>
-            </div>
-
+            <CollapsibleSection title={`Inspector${selectedObject ? ` — ${KIND_LABELS[selectedObject.kind]}` : ''}`}>
             {selectedObject ? (
               <div className="be-inspector-form">
                 <Field label="Name">
@@ -1561,6 +1577,53 @@ function App() {
                       >
                         Create Array
                       </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Window-specific fields */}
+                {selectedObject.kind === 'window' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 0', borderTop: '1px solid var(--be-border-1)' }}>
+                    <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--be-text-dim)', marginBottom: 2 }}>Window</span>
+                    <NumberField label="Width" value={selectedObject.width} min={0.3} step={0.1}
+                      onChange={(v) => updateSelected({ width: Math.max(0.3, v) })} />
+                    <NumberField label="Height" value={selectedObject.height} min={0.3} step={0.1}
+                      onChange={(v) => updateSelected({ height: Math.max(0.3, v) })} />
+                    <NumberField label="Border" value={selectedObject.borderThickness ?? 0.12} min={0.02} step={0.01}
+                      onChange={(v) => updateSelected({ borderThickness: Math.max(0.02, v) })} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', flex: 1 }}>Frame Color</span>
+                      <input
+                        type="color"
+                        value={vec3ToHex(selectedObject.frameColor ?? [0.45,0.32,0.22])}
+                        style={{ width: 32, height: 22, padding: 1, borderRadius: 4, border: '1px solid var(--be-border-2)', cursor: 'pointer' }}
+                        onChange={(e) => updateSelected({ frameColor: hexToVec3(e.target.value) }, false)}
+                        onBlur={(e)  => updateSelected({ frameColor: hexToVec3(e.target.value) })}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', flex: 1 }}>Glass Color</span>
+                      <input
+                        type="color"
+                        value={vec3ToHex(selectedObject.color)}
+                        style={{ width: 32, height: 22, padding: 1, borderRadius: 4, border: '1px solid var(--be-border-2)', cursor: 'pointer' }}
+                        onChange={(e) => updateSelected({ color: hexToVec3(e.target.value) }, false)}
+                        onBlur={(e)  => updateSelected({ color: hexToVec3(e.target.value) })}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', flex: 1 }}>Opacity</span>
+                      <input
+                        type="range"
+                        min={0} max={1} step={0.05}
+                        value={selectedObject.glassOpacity ?? 0.35}
+                        style={{ flex: 2 }}
+                        onChange={(e) => updateSelected({ glassOpacity: parseFloat(e.target.value) }, false)}
+                        onMouseUp={(e) => updateSelected({ glassOpacity: parseFloat((e.target as HTMLInputElement).value) })}
+                      />
+                      <span style={{ fontSize: '0.6rem', color: 'var(--be-text-dim)', width: 28 }}>
+                        {((selectedObject.glassOpacity ?? 0.35) * 100).toFixed(0)}%
+                      </span>
                     </div>
                   </div>
                 )}
@@ -1671,7 +1734,7 @@ function App() {
                 <p>Select an object in the viewport<br/>or add one from the left panel</p>
               </div>
             )}
-            </div>
+            </CollapsibleSection>
 
             {/* GLUT EXPORT / IMPORT */}
             <div className="be-section be-export-section">

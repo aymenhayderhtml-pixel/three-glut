@@ -13,6 +13,7 @@ export type PrimitiveKind =
   | 'teapot'
   | 'ground'
   | 'prism'
+  | 'window'
 
 export type TwoDDrawKind = 'line' | 'rect' | 'circle'
 
@@ -79,12 +80,16 @@ export interface SceneObject {
   edgePulls: Partial<Record<CubeEdgeKey, number>>
   faceColors: Partial<Record<string, [number, number, number]>>
   holes: HoleData[]
-  prismMesh?: PrismMesh;      // custom mesh after editing
-  prismParams?: {             // parameters for regeneration
+  prismMesh?: PrismMesh;
+  prismParams?: {
     sides: number;
     radius: number;
     height: number;
   };
+  // Window-specific
+  borderThickness: number
+  frameColor: [number, number, number]
+  glassOpacity: number
 }
 
 export interface SceneDocument {
@@ -100,7 +105,7 @@ export const SPACE_LABELS: Record<Space, string> = {
 
 export const SPACE_KINDS = {
   '2d': ['line', 'rect', 'circle', 'polygon'] as const,
-  '3d': ['cube', 'sphere', 'cone', 'torus', 'teapot', 'ground', 'prism'] as const,
+  '3d': ['cube', 'sphere', 'cone', 'torus', 'teapot', 'ground', 'prism', 'window'] as const,
 } satisfies Record<Space, readonly PrimitiveKind[]>
 
 export const KIND_LABELS: Record<PrimitiveKind, string> = {
@@ -115,6 +120,7 @@ export const KIND_LABELS: Record<PrimitiveKind, string> = {
   teapot: 'Teapot',
   ground: 'Ground',
   prism: 'Prism',
+  window: 'Window',
 }
 
 export const CUBE_FACE_KEYS: CubeFaceKey[] = [
@@ -192,6 +198,7 @@ const DEFAULT_COLORS: Record<PrimitiveKind, [number, number, number]> = {
   teapot: [0.52, 0.91, 0.83],
   ground: [0.45, 0.42, 0.38],
   prism: [0.85, 0.55, 0.95],
+  window: [0.72, 0.82, 0.98],
 }
 
 const VALID_KINDS = new Set<PrimitiveKind>([
@@ -206,6 +213,7 @@ const VALID_KINDS = new Set<PrimitiveKind>([
   'teapot',
   'ground',
   'prism',
+  'window',
 ])
 
 const STORAGE_KEY = 'three-glut-scene-document'
@@ -325,6 +333,9 @@ function baseSceneObject(kind: PrimitiveKind, index: number): SceneObject {
     edgePulls: {},
     faceColors: {},
     holes: [],
+    borderThickness: 0.12,
+    frameColor: [0.45, 0.32, 0.22],
+    glassOpacity: 0.35,
   }
 }
 
@@ -426,6 +437,22 @@ export function createSceneObject(kind: PrimitiveKind, index: number): SceneObje
           radius: 0.9,
           height: 1.6,
         },
+      }
+    case 'window':
+      return {
+        ...object,
+        width: 1.6,
+        height: 2.2,
+        borderThickness: 0.12,
+        frameColor: [0.45, 0.32, 0.22] as [number, number, number],
+        glassOpacity: 0.35,
+        // glass color stored in object.color
+        color: [0.72, 0.82, 0.98] as [number, number, number],
+        position: [
+          object.position[0],
+          object.position[1] + 0.5,
+          object.position[2],
+        ] as [number, number, number],
       }
   }
 }
@@ -538,6 +565,10 @@ function hydrateSceneObject(
           height: isFiniteNumber((rawRecord.prismParams as any).height) ? Math.max(0.1, (rawRecord.prismParams as any).height) : 1.6,
         }
       : undefined,
+    // Window-specific properties
+    borderThickness: isFiniteNumber(rawRecord.borderThickness) ? Math.max(0.02, rawRecord.borderThickness) : base.borderThickness,
+    frameColor: sanitizeColor(rawRecord.frameColor, base.frameColor),
+    glassOpacity: isFiniteNumber(rawRecord.glassOpacity) ? Math.max(0, Math.min(1, rawRecord.glassOpacity)) : base.glassOpacity,
   }
 }
 
@@ -698,6 +729,8 @@ export function getObjectDimensions(object: SceneObject): [number, number, numbe
     case 'circle':
     case 'polygon':
       return [round(object.radius * 2), round(object.radius * 2), 0]
+    case 'window':
+      return [round(object.width), round(object.height), 0]
     default:
       return [0, 0, 0]
   }

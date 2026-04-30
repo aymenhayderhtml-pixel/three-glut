@@ -85,6 +85,43 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
       lines.push(`  glScalef(${toF(object.width)}, ${toF(object.height)}, ${toF(object.depth)});`)
       lines.push(`  glutSolidCube(1.0);`)
       break
+    case 'window': {
+      const W = object.width
+      const H = object.height
+      const B = object.borderThickness ?? 0.12
+      const glassW = Math.max(0.01, W - B * 2)
+      const glassH = Math.max(0.01, H - B * 2)
+      const fc = object.frameColor ?? object.color
+      const gc = object.color
+      const opacity = object.glassOpacity ?? 0.35
+
+      lines.push(`  // Window frame (4 borders) — ${object.name}`)
+      lines.push(`  glColor3f(${toF(fc[0])}, ${toF(fc[1])}, ${toF(fc[2])});`)
+      lines.push(`  glBegin(GL_QUADS);`)
+      // Top border
+      lines.push(`  // Top border`)
+      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-W/2)},${toF(H/2-B)},0); glVertex3f(${toF(W/2)},${toF(H/2-B)},0); glVertex3f(${toF(W/2)},${toF(H/2)},0); glVertex3f(${toF(-W/2)},${toF(H/2)},0);`)
+      // Bottom border
+      lines.push(`  // Bottom border`)
+      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-W/2)},${toF(-H/2)},0); glVertex3f(${toF(W/2)},${toF(-H/2)},0); glVertex3f(${toF(W/2)},${toF(-H/2+B)},0); glVertex3f(${toF(-W/2)},${toF(-H/2+B)},0);`)
+      // Left border
+      lines.push(`  // Left border`)
+      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-W/2)},${toF(-glassH/2)},0); glVertex3f(${toF(-W/2+B)},${toF(-glassH/2)},0); glVertex3f(${toF(-W/2+B)},${toF(glassH/2)},0); glVertex3f(${toF(-W/2)},${toF(glassH/2)},0);`)
+      // Right border
+      lines.push(`  // Right border`)
+      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(W/2-B)},${toF(-glassH/2)},0); glVertex3f(${toF(W/2)},${toF(-glassH/2)},0); glVertex3f(${toF(W/2)},${toF(glassH/2)},0); glVertex3f(${toF(W/2-B)},${toF(glassH/2)},0);`)
+      lines.push(`  glEnd();`)
+      // Glass (transparent quad)
+      lines.push(`  // Glass pane (transparent)`)
+      lines.push(`  glEnable(GL_BLEND);`)
+      lines.push(`  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);`)
+      lines.push(`  glColor4f(${toF(gc[0])}, ${toF(gc[1])}, ${toF(gc[2])}, ${toF(opacity)});`)
+      lines.push(`  glBegin(GL_QUADS);`)
+      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-glassW/2)},${toF(-glassH/2)},0); glVertex3f(${toF(glassW/2)},${toF(-glassH/2)},0); glVertex3f(${toF(glassW/2)},${toF(glassH/2)},0); glVertex3f(${toF(-glassW/2)},${toF(glassH/2)},0);`)
+      lines.push(`  glEnd();`)
+      lines.push(`  glDisable(GL_BLEND);`)
+      break
+    }
     case 'prism': {
       if ((object as any).prismMesh) {
         const mesh = (object as any).prismMesh;
