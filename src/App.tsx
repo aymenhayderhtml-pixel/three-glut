@@ -212,6 +212,8 @@ function App() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [lastMeasuredId, setLastMeasuredId] = useState<string | null>(null)
+  const [glutImportCode, setGlutImportCode] = useState<string>('')
+  const [glutImportTab, setGlutImportTab] = useState<'export' | 'import'>('export')
 
   const activeScene = scenes[activeSpace]
   const activeSelectionId = selection[activeSpace]
@@ -1319,29 +1321,193 @@ function App() {
             )}
             </div>
 
-            {/* GLUT EXPORT */}
+            {/* GLUT EXPORT / IMPORT */}
             <div className="be-section be-export-section">
-            <div className="be-section-header">GLUT EXPORT</div>
-            <div className="be-export-stats">
-              <span className="be-stat">📄 {activeScene.length} objects</span>
-              <span className="be-stat">🟡 Colors preserved</span>
-            </div>
-            <button type="button" className="be-btn-primary" onClick={copyCode} disabled={!canExportCode}>
-              ⊕ Generate C Code
-            </button>
-            <button type="button" className="be-btn-secondary" onClick={downloadCode} disabled={!canExportCode}>
-              ↓ Download .c
-            </button>
-            <button type="button" className="be-btn-secondary" onClick={downloadSceneJson}>
-              📋 Download JSON
-            </button>
-            <div className="be-code-section">
-              <div className="be-code-scope">
-                <button type="button" className={exportScope==='scene' ? 'toggle-active':''} onClick={() => setExportScope('scene')}>Full scene</button>
-                <button type="button" className={exportScope==='selection' ? 'toggle-active':''} onClick={() => setExportScope('selection')}>Selection</button>
+              <div className="be-section-header">
+                GLUT CODE
+                <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                  <button
+                    type="button"
+                    style={{
+                      fontSize: '0.65rem',
+                      padding: '2px 7px',
+                      borderRadius: 4,
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: glutImportTab === 'export' ? 'var(--be-accent, #f0a)' : 'var(--be-surface2, #333)',
+                      color: '#fff',
+                    }}
+                    onClick={() => setGlutImportTab('export')}
+                  >Export</button>
+                  <button
+                    type="button"
+                    style={{
+                      fontSize: '0.65rem',
+                      padding: '2px 7px',
+                      borderRadius: 4,
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: glutImportTab === 'import' ? 'var(--be-accent, #f0a)' : 'var(--be-surface2, #333)',
+                      color: '#fff',
+                    }}
+                    onClick={() => setGlutImportTab('import')}
+                  >Edit GLUT</button>
+                </span>
               </div>
-              <pre className="be-code-block">{exportedCode}</pre>
-            </div>
+
+              {glutImportTab === 'export' ? (
+                <>
+                  <div className="be-export-stats">
+                    <span className="be-stat">📄 {activeScene.length} objects</span>
+                    <span className="be-stat">🟡 Colors preserved</span>
+                  </div>
+                  <button type="button" className="be-btn-primary" onClick={copyCode} disabled={!canExportCode}>
+                    ⊕ Generate C Code
+                  </button>
+                  <button type="button" className="be-btn-secondary" onClick={downloadCode} disabled={!canExportCode}>
+                    ↓ Download .c
+                  </button>
+                  <button type="button" className="be-btn-secondary" onClick={downloadSceneJson}>
+                    📋 Download JSON
+                  </button>
+                  <div className="be-code-section">
+                    <div className="be-code-scope">
+                      <button type="button" className={exportScope==='scene' ? 'toggle-active':''} onClick={() => setExportScope('scene')}>Full scene</button>
+                      <button type="button" className={exportScope==='selection' ? 'toggle-active':''} onClick={() => setExportScope('selection')}>Selection</button>
+                    </div>
+                    <pre className="be-code-block">{exportedCode}</pre>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="be-btn-primary"
+                      onClick={() => {
+                        setGlutImportCode(exportedCode)
+                        setCopyStatus('Loaded exported code into editor')
+                      }}
+                    >
+                      ← Load from scene
+                    </button>
+                    <button
+                      type="button"
+                      className="be-btn-secondary"
+                      onClick={() => {
+                        if (!glutImportCode.trim()) return
+                        const blob = new Blob([glutImportCode], { type: 'text/x-c++src' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = 'scene-custom.cpp'
+                        a.click()
+                        URL.revokeObjectURL(url)
+                        setCopyStatus('Downloaded edited GLUT code')
+                      }}
+                      disabled={!glutImportCode.trim()}
+                    >
+                      ↓ Download
+                    </button>
+                    <button
+                      type="button"
+                      className="be-btn-secondary"
+                      onClick={async () => {
+                        if (!glutImportCode.trim()) return
+                        try {
+                          await navigator.clipboard.writeText(glutImportCode)
+                          setCopyStatus('Copied edited GLUT code')
+                        } catch {
+                          setCopyStatus('Clipboard blocked')
+                        }
+                      }}
+                      disabled={!glutImportCode.trim()}
+                    >
+                      ⊕ Copy
+                    </button>
+                    <button
+                      type="button"
+                      className="be-btn-secondary"
+                      onClick={() => {
+                        if (window.confirm('Clear the editor?')) {
+                          setGlutImportCode('')
+                          setCopyStatus('Editor cleared')
+                        }
+                      }}
+                      disabled={!glutImportCode.trim()}
+                    >
+                      ✕ Clear
+                    </button>
+                  </div>
+                  <div style={{ position: 'relative', fontFamily: 'monospace', fontSize: '0.72rem' }}>
+                    <div style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: 32,
+                      bottom: 0,
+                      background: 'var(--be-surface2, #222)',
+                      borderRight: '1px solid var(--be-border, #444)',
+                      pointerEvents: 'none',
+                      overflow: 'hidden',
+                      userSelect: 'none',
+                      paddingTop: 8,
+                      boxSizing: 'border-box',
+                      color: 'var(--be-text-dim, #666)',
+                      textAlign: 'right',
+                      paddingRight: 4,
+                      lineHeight: '1.5em',
+                    }}>
+                      {(glutImportCode || ' ').split('\n').map((_, i) => (
+                        <div key={i}>{i + 1}</div>
+                      ))}
+                    </div>
+                    <textarea
+                      value={glutImportCode}
+                      onChange={(e) => setGlutImportCode(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Tab') {
+                          e.preventDefault()
+                          const el = e.currentTarget
+                          const start = el.selectionStart
+                          const end = el.selectionEnd
+                          const next = glutImportCode.substring(0, start) + '  ' + glutImportCode.substring(end)
+                          setGlutImportCode(next)
+                          requestAnimationFrame(() => {
+                            el.selectionStart = el.selectionEnd = start + 2
+                          })
+                        }
+                      }}
+                      placeholder={"// Paste or load GLUT C code here\n// Tab inserts 2 spaces\n// Use 'Load from scene' to start from your current scene"}
+                      spellCheck={false}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        minHeight: 360,
+                        resize: 'vertical',
+                        background: 'var(--be-surface, #1a1a1a)',
+                        color: 'var(--be-text, #ddd)',
+                        border: '1px solid var(--be-border, #444)',
+                        borderRadius: 6,
+                        padding: '8px 8px 8px 40px',
+                        fontFamily: 'monospace',
+                        fontSize: '0.72rem',
+                        lineHeight: '1.5em',
+                        boxSizing: 'border-box',
+                        outline: 'none',
+                        whiteSpace: 'pre',
+                        overflowWrap: 'normal',
+                        overflowX: 'auto',
+                      }}
+                    />
+                  </div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--be-text-dim, #888)', marginTop: 4 }}>
+                    {glutImportCode
+                      ? `${glutImportCode.split('\n').length} lines · ${glutImportCode.length} chars`
+                      : 'Empty'}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </aside>
