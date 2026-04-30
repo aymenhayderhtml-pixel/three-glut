@@ -18,24 +18,17 @@ const sanitizeName = (name: string, fallback: string) => {
 function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: string[]) {
   switch (object.kind) {
     case 'cube': {
+      // Three.js renders the cube as a scaled 1x1x1 box (symmetric around object position).
+      // We match that exactly: no cx/cy/cz offset — just use half the total extents.
       const ext = computeCubeExtents(object);
-      const sx = ext.xPos + ext.xNeg;
-      const sy = ext.yPos + ext.yNeg;
-      const sz = ext.zPos + ext.zNeg;
-      const cx = (ext.xPos - ext.xNeg) / 2;
-      const cz = (ext.zPos - ext.zNeg) / 2;
+      const hx = (ext.xPos + ext.xNeg) / 2;
+      const hy = (ext.yPos + ext.yNeg) / 2;
+      const hz = (ext.zPos + ext.zNeg) / 2;
 
       const fc = object.faceColors ?? {}
-      
-      // Manual quad rendering (always used for robustness)
-      const hx = sx / 2, hy = sy / 2, hz = sz / 2
       const faceColor = (key: string) => {
         const c = fc[key] ?? object.color
         return `  glColor3f(${toF(c[0])}, ${toF(c[1])}, ${toF(c[2])});`
-      }
-      
-      if (Math.abs(cx) > 0.001 || Math.abs(cz) > 0.001) {
-        lines.push(`  glTranslatef(${toF(cx)}, 0.0f, ${toF(cz)});`);
       }
 
       lines.push(`  glBegin(GL_QUADS);`)
@@ -54,13 +47,10 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
       // Right (xPos)
       lines.push(faceColor('xPos'))
       lines.push(`  glNormal3f(1,0,0); glVertex3f(${toF(hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(-hz)}); glVertex3f(${toF(hx)},${toF(hy)},${toF(hz)});`)
-      // Left (xNeg)
+      // Left (xNeg) — fixed: second vertex was duplicated, now correctly uses bottom-front
       lines.push(faceColor('xNeg'))
-      lines.push(`  glNormal3f(-1,0,0); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(-hz)});`)
+      lines.push(`  glNormal3f(-1,0,0); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(-hz)}); glVertex3f(${toF(-hx)},${toF(-hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(hz)}); glVertex3f(${toF(-hx)},${toF(hy)},${toF(-hz)});`)
       lines.push(`  glEnd();`)
-      
-      // Restore object color after
-      lines.push(`  glColor3f(${toF(object.color[0])}, ${toF(object.color[1])}, ${toF(object.color[2])});`)
       break
     }
     case 'sphere': {
@@ -136,30 +126,33 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
           const c = fc[key] ?? object.color
           return `  glColor3f(${toF(c[0])}, ${toF(c[1])}, ${toF(c[2])});`
         }
+        const sides = object.prismParams?.sides ?? 3;
         const r = object.radius;
         const hh = object.height / 2;
         const pts: [number, number][] = [];
-        for (let i = 0; i < 3; i++) {
-          const angle = (Math.PI / 2) + (i * 2 * Math.PI / 3);
+        for (let i = 0; i < sides; i++) {
+          const angle = (Math.PI / 2) + (i * 2 * Math.PI / sides);
           pts.push([r * Math.cos(angle), r * Math.sin(angle)]);
         }
-        lines.push(`  // Triangular prism (centered, per-face colors)`);
-        // Top cap
+        lines.push(`  // Prism (${sides} sides, centered, per-face colors)`);
+        // Top cap — fan from first vertex
         lines.push(faceColor('top'))
-        lines.push(`  glBegin(GL_TRIANGLES);`);
+        lines.push(`  glBegin(GL_TRIANGLE_FAN);`);
         lines.push(`  glNormal3f(0.0, 1.0, 0.0);`);
         for (const [x, z] of pts) lines.push(`  glVertex3f(${toF(x)}, ${toF(hh)}, ${toF(z)});`);
+        lines.push(`  glVertex3f(${toF(pts[0][0])}, ${toF(hh)}, ${toF(pts[0][1])});`);
         lines.push(`  glEnd();`);
-        // Bottom cap
+        // Bottom cap — reversed winding
         lines.push(faceColor('bottom'))
-        lines.push(`  glBegin(GL_TRIANGLES);`);
+        lines.push(`  glBegin(GL_TRIANGLE_FAN);`);
         lines.push(`  glNormal3f(0.0, -1.0, 0.0);`);
-        for (let i = 2; i >= 0; i--) lines.push(`  glVertex3f(${toF(pts[i][0])}, ${toF(-hh)}, ${toF(pts[i][1])});`);
+        for (let i = pts.length - 1; i >= 0; i--) lines.push(`  glVertex3f(${toF(pts[i][0])}, ${toF(-hh)}, ${toF(pts[i][1])});`);
+        lines.push(`  glVertex3f(${toF(pts[pts.length-1][0])}, ${toF(-hh)}, ${toF(pts[pts.length-1][1])});`);
         lines.push(`  glEnd();`);
         // Sides
         lines.push(`  glBegin(GL_QUADS);`);
-        for (let i = 0; i < 3; i++) {
-          const j = (i + 1) % 3;
+        for (let i = 0; i < sides; i++) {
+          const j = (i + 1) % sides;
           const [x1, z1] = pts[i], [x2, z2] = pts[j];
           const dx = x2 - x1, dz = z2 - z1;
           const len = Math.hypot(dx, dz);
@@ -274,13 +267,18 @@ export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
     lines.push('  glEnable(GL_LIGHT0);')
     lines.push('  glEnable(GL_COLOR_MATERIAL);')
     lines.push('  glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);')
+    lines.push('  glShadeModel(GL_SMOOTH);')
     lines.push('')
-    lines.push('  GLfloat lightPos[] = { 4.0f, 6.0f, 5.0f, 1.0f };')
-    lines.push('  GLfloat lightAmb[] = { 0.3f, 0.3f, 0.3f, 1.0f };')
-    lines.push('  GLfloat lightDif[] = { 0.8f, 0.8f, 0.8f, 1.0f };')
+    // High ambient (0.7) + moderate diffuse (0.4) → colors appear close to
+    // Three.js meshStandardMaterial which uses PBR with bright scene ambient.
+    lines.push('  GLfloat lightPos[] = { 5.0f, 8.0f, 6.0f, 1.0f };')
+    lines.push('  GLfloat lightAmb[] = { 0.7f, 0.7f, 0.7f, 1.0f };')
+    lines.push('  GLfloat lightDif[] = { 0.4f, 0.4f, 0.4f, 1.0f };')
+    lines.push('  GLfloat lightSpec[]= { 0.2f, 0.2f, 0.2f, 1.0f };')
     lines.push('  glLightfv(GL_LIGHT0, GL_POSITION, lightPos);')
-    lines.push('  glLightfv(GL_LIGHT0, GL_AMBIENT, lightAmb);')
-    lines.push('  glLightfv(GL_LIGHT0, GL_DIFFUSE, lightDif);')
+    lines.push('  glLightfv(GL_LIGHT0, GL_AMBIENT,  lightAmb);')
+    lines.push('  glLightfv(GL_LIGHT0, GL_DIFFUSE,  lightDif);')
+    lines.push('  glLightfv(GL_LIGHT0, GL_SPECULAR, lightSpec);')
   }
   lines.push('}')
   lines.push('')

@@ -161,11 +161,13 @@ const labelStyle: React.CSSProperties = {
 function SelectableObject({
   object,
   selected,
+  multiSelected,
   selectedFace,
   selectedEdge,
   transformMode,
   editMode,
   onSelect,
+  onShiftSelect,
   onSelectFace,
   onSelectEdge,
   onUpdateObject,
@@ -174,17 +176,20 @@ function SelectableObject({
 }: {
   object: SceneObject
   selected: boolean
+  multiSelected?: boolean
   selectedFace: string | null
   selectedEdge: string | null
   transformMode: TransformMode | null
   editMode: 'object' | 'face' | 'edge' | 'measure'
   onSelect: (id: string) => void
+  onShiftSelect?: (id: string) => void
   onSelectFace: (faceKey: typeof CUBE_FACE_KEYS[number] | null) => void
   onSelectEdge: (edgeKey: typeof CUBE_EDGE_KEYS[number] | null) => void
   onUpdateObject: (id: string, changes: Partial<SceneObject>) => void
   lastMeasuredId: string | null
   onTransformDraggingChange: (dragging: boolean) => void
 }) {
+  const isEffectivelySelected = selected || multiSelected
   const groupRef = useRef<THREE.Group>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [prismMesh, setPrismMesh] = useState<PrismMesh | null>(object.prismMesh ?? null)
@@ -217,7 +222,7 @@ function SelectableObject({
       return new THREE.Color(c[0], c[1], c[2])
     }
     const getEmissive = (face: string) => {
-      if (!selected) return 0x000000
+      if (!isEffectivelySelected) return 0x000000
       if (editMode === 'face' && selectedFace === face) return 0x554422
       return 0x332200
     }
@@ -230,7 +235,7 @@ function SelectableObject({
       new THREE.MeshStandardMaterial({ color: getColor('zPos'), emissive: getEmissive('zPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
       new THREE.MeshStandardMaterial({ color: getColor('zNeg'), emissive: getEmissive('zNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
     ]
-  }, [object.kind, object.color, object.faceColors, selected, selectedFace, editMode])
+  }, [object.kind, object.color, object.faceColors, selected, multiSelected, selectedFace, editMode])
 
   useEffect(() => {
     return () => {
@@ -322,13 +327,17 @@ function SelectableObject({
       scale={object.scale}
       onClick={(e) => {
         e.stopPropagation()
-        onSelect(object.id)
-        
-        // Face selection via Raycasting (faceIndex)
-        if (object.kind === 'cube' && editMode === 'face' && e.faceIndex !== undefined && e.faceIndex !== null) {
-          const faceGroup = Math.floor(e.faceIndex / 2)
-          const keys = ['xPos', 'xNeg', 'yPos', 'yNeg', 'zPos', 'zNeg'] as const
-          onSelectFace(keys[faceGroup])
+        if (e.shiftKey && onShiftSelect) {
+          onShiftSelect(object.id)
+        } else {
+          onSelect(object.id)
+          
+          // Face selection via Raycasting (faceIndex)
+          if (object.kind === 'cube' && editMode === 'face' && e.faceIndex !== undefined && e.faceIndex !== null) {
+            const faceGroup = Math.floor(e.faceIndex / 2)
+            const keys = ['xPos', 'xNeg', 'yPos', 'yNeg', 'zPos', 'zNeg'] as const
+            onSelectFace(keys[faceGroup])
+          }
         }
       }}
     >
@@ -338,12 +347,12 @@ function SelectableObject({
         <>
           <mesh scale={scale} material={materials || undefined}>
             {geometry}
-            {!materials && <meshStandardMaterial color={object.color} emissive={selected ? 0x332200 : 0x000000} polygonOffset={true} polygonOffsetFactor={1} polygonOffsetUnits={1} />}
+            {!materials && <meshStandardMaterial color={object.color} emissive={isEffectivelySelected ? 0x332200 : 0x000000} polygonOffset={true} polygonOffsetFactor={1} polygonOffsetUnits={1} />}
           </mesh>
-          {selected && !shouldShowPrismGizmo && (
+          {isEffectivelySelected && !shouldShowPrismGizmo && (
             <mesh scale={[1.05, 1.05, 1.05]}>
               {geometry}
-              <meshBasicMaterial color="#ffaa44" transparent opacity={0.15} side={THREE.BackSide} depthWrite={false} />
+              <meshBasicMaterial color={multiSelected ? "#88ccff" : "#ffaa44"} transparent opacity={0.15} side={THREE.BackSide} depthWrite={false} />
             </mesh>
           )}
         </>
@@ -474,6 +483,8 @@ function CameraHandler({ enabled }: { enabled: boolean }) {
 export default function Viewport3D({
   objects,
   selectedId,
+  multiSelectedIds = [],
+  onShiftSelect,
   editMode,
   selectedFace,
   selectedEdge,
@@ -507,6 +518,8 @@ export default function Viewport3D({
             key={obj.id}
             object={obj}
             selected={obj.id === selectedId}
+            multiSelected={multiSelectedIds.includes(obj.id)}
+            onShiftSelect={onShiftSelect}
             selectedFace={selectedId === obj.id ? selectedFace : null}
             selectedEdge={selectedId === obj.id ? selectedEdge : null}
             transformMode={transformMode}

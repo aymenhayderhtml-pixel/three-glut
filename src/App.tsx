@@ -256,8 +256,13 @@ function App() {
   })
 
 
+  const [multiSelection, setMultiSelection] = useState<Record<Space, string[]>>({ '2d': [], '3d': [] })
+
   const activeScene = scenes[activeSpace]
   const activeSelectionId = selection[activeSpace]
+  const multiSelectedIds = multiSelection[activeSpace]
+  const hasMultiSelect = multiSelectedIds.length > 1
+  const multiSelectedObjects = activeScene.filter(o => multiSelectedIds.includes(o.id))
   const selectedObject =
     activeScene.find((object) => object.id === activeSelectionId) ?? null
   const canSubEditCube =
@@ -404,6 +409,19 @@ function App() {
       ...current,
       [activeSpace]: id,
     }))
+    // Normal click clears multi-selection
+    setMultiSelection((cur) => ({ ...cur, [activeSpace]: id ? [id] : [] }))
+    setLastMeasuredId(null)
+  }
+
+  const shiftSelectObject = (id: string) => {
+    setMultiSelection((cur) => {
+      const ids = cur[activeSpace]
+      const next = ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]
+      return { ...cur, [activeSpace]: next }
+    })
+    // Also update primary selection to this object
+    setSelection((current) => ({ ...current, [activeSpace]: id }))
     setLastMeasuredId(null)
   }
 
@@ -448,6 +466,65 @@ function App() {
     } else {
       apply()
     }
+  }
+
+  // Bulk update all multi-selected objects with the same patch
+  const updateMultiSelected = (patch: Partial<SceneObject>, recordHistory = true) => {
+    if (multiSelectedIds.length === 0) return
+    const ids = new Set(multiSelectedIds)
+    const apply = () => {
+      updateSceneObjects(activeSpace, (current) =>
+        current.map((obj) => {
+          if (!ids.has(obj.id)) return obj
+          return {
+            ...obj,
+            ...patch,
+            faceColors: patch.faceColors ? { ...(obj.faceColors || {}), ...patch.faceColors } : obj.faceColors,
+          }
+        }),
+      )
+    }
+    if (recordHistory) commitSceneChange(apply)
+    else apply()
+  }
+
+  // Multiply scale or add rotation delta to all selected on one axis
+  const applyDeltaToMulti = (key: 'scale' | 'rotation', axis: 0 | 1 | 2, delta: number) => {
+    const ids = new Set(multiSelectedIds)
+    commitSceneChange(() => {
+      updateSceneObjects(activeSpace, (current) =>
+        current.map((obj) => {
+          if (!ids.has(obj.id)) return obj
+          const vec = [...obj[key]] as [number, number, number]
+          vec[axis] = key === 'scale' ? Math.max(0.05, roundTo(vec[axis] * delta)) : roundTo(vec[axis] + delta)
+          return { ...obj, [key]: vec }
+        }),
+      )
+    })
+  }
+
+  // Convert all multi-selected to a new kind, keeping position / rotation / scale / color
+  const changeTypeForSelected = (newKind: PrimitiveKind) => {
+    const ids = new Set(multiSelectedIds)
+    commitSceneChange(() => {
+      updateSceneObjects(activeSpace, (current) =>
+        current.map((obj) => {
+          if (!ids.has(obj.id)) return obj
+          const base = createSceneObject(newKind, 0)
+          return { ...base, id: obj.id, name: obj.name, position: obj.position, rotation: obj.rotation, scale: obj.scale, color: obj.color }
+        }),
+      )
+    })
+  }
+
+  // Delete all multi-selected objects in one history step
+  const deleteMultiSelected = () => {
+    const ids = new Set(multiSelectedIds)
+    commitSceneChange(() => {
+      updateSceneObjects(activeSpace, (cur) => cur.filter((o) => !ids.has(o.id)))
+    })
+    setMultiSelection((cur) => ({ ...cur, [activeSpace]: [] }))
+    selectObject(null)
   }
 
   const saveFavorite = (index: number) => {
@@ -496,6 +573,10 @@ function App() {
   }, [selectedObject, updateSelected])
 
   const applyFavorite = (hex: string) => {
+    if (hasMultiSelect) {
+      updateMultiSelected({ color: hexToVec3(hex) })
+      return
+    }
     if (!selectedObject) return
     updateSelected({ color: hexToVec3(hex) })
   }
@@ -1186,13 +1267,17 @@ function App() {
             {activeScene.map((obj) => (
               <li
                 key={obj.id}
-                className={`be-obj-item${obj.id === activeSelectionId ? ' active' : ''}`}
+                className={`be-obj-item${obj.id === activeSelectionId ? ' active' : ''}${multiSelectedIds.includes(obj.id) ? ' multi-active' : ''}`}
+                onClick={(e) => {
+                  if (e.shiftKey) shiftSelectObject(obj.id)
+                  else selectObject(obj.id)
+                }}
               >
                 <span
                   className="be-obj-dot"
                   style={{ background: objDotColor(obj.color) }}
                 />
-                <span className="be-obj-name" onClick={() => selectObject(obj.id)}>
+                <span className="be-obj-name">
                   {obj.name}
                 </span>
                 <button
@@ -1207,7 +1292,25 @@ function App() {
 
         {/* ── COLOR PANEL ── */}
         <CollapsibleSection title="Colors">
-            {selectedObject ? (
+            {hasMultiSelect ? (
+              <div style={{ padding: '6px 10px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', flex: 1 }}>Bulk Color</span>
+                  <input
+                    type="color"
+                    value={vec3ToHex(multiSelectedObjects[0]?.color ?? [1, 1, 1])}
+                    style={{ width: 32, height: 22, padding: 1, borderRadius: 4, border: '1px solid var(--be-border-2)', cursor: 'pointer', background: 'var(--be-bg)' }}
+                    onChange={(e) => updateMultiSelected({ color: hexToVec3(e.target.value) }, false)}
+                    onBlur={(e) => updateMultiSelected({ color: hexToVec3(e.target.value) })}
+                  />
+                  <div style={{
+                    width: 18, height: 18, borderRadius: 3, flexShrink: 0,
+                    background: objDotColor(multiSelectedObjects[0]?.color ?? [1, 1, 1]),
+                    border: '1px solid var(--be-border-2)'
+                  }} />
+                </div>
+              </div>
+            ) : selectedObject ? (
               <div style={{ padding: '6px 10px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
 
                 {/* Global object color / Selected Face color */}
@@ -1410,6 +1513,8 @@ function App() {
             space={activeSpace}
             objects={activeScene}
             selectedId={activeSelectionId}
+            multiSelectedIds={multiSelectedIds}
+            onShiftSelect={shiftSelectObject}
             active2DTool={active2DTool}
             threeDEditMode={effectiveThreeDEditMode}
             transformMode={transformMode}
@@ -1471,8 +1576,73 @@ function App() {
         <aside className="be-right-panel">
           <div className="be-right-panel-inner">
             {/* INSPECTOR */}
-            <CollapsibleSection title={`Inspector${selectedObject ? ` — ${KIND_LABELS[selectedObject.kind]}` : ''}`}>
-            {selectedObject ? (
+            <CollapsibleSection title={hasMultiSelect ? `Inspector — ${multiSelectedIds.length} Selected` : `Inspector${selectedObject ? ` — ${KIND_LABELS[selectedObject.kind]}` : ''}`}>
+            
+            {hasMultiSelect ? (
+              <div className="be-inspector-form">
+                <div style={{ padding: '8px', background: 'var(--be-bg)', borderRadius: 4, border: '1px solid var(--be-border-2)', marginBottom: 12 }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--be-text)', fontWeight: 600 }}>{multiSelectedIds.length} objects selected</span>
+                  <p style={{ fontSize: '0.6rem', color: 'var(--be-text-dim)', marginTop: 4, lineHeight: 1.4 }}>
+                    Bulk edit mode. Changes apply to all selected objects.
+                  </p>
+                </div>
+
+                <div className="field">
+                  <span>Delta Scale</span>
+                  <div className="vector-group">
+                    {(['x', 'y', 'z'] as const).map((axis, i) => (
+                      <button key={axis} type="button" onClick={() => applyDeltaToMulti('scale', i as 0 | 1 | 2, 1.5)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                        {axis.toUpperCase()} ×1.5
+                      </button>
+                    ))}
+                  </div>
+                  <div className="vector-group" style={{ marginTop: 4 }}>
+                    {(['x', 'y', 'z'] as const).map((axis, i) => (
+                      <button key={axis} type="button" onClick={() => applyDeltaToMulti('scale', i as 0 | 1 | 2, 0.5)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                        {axis.toUpperCase()} ×0.5
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="field">
+                  <span>Delta Rotate</span>
+                  <div className="vector-group">
+                    {(['x', 'y', 'z'] as const).map((axis, i) => (
+                      <button key={axis} type="button" onClick={() => applyDeltaToMulti('rotation', i as 0 | 1 | 2, 90)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                        {axis.toUpperCase()} +90°
+                      </button>
+                    ))}
+                  </div>
+                  <div className="vector-group" style={{ marginTop: 4 }}>
+                    {(['x', 'y', 'z'] as const).map((axis, i) => (
+                      <button key={axis} type="button" onClick={() => applyDeltaToMulti('rotation', i as 0 | 1 | 2, -90)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                        {axis.toUpperCase()} -90°
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="field">
+                  <span>Change Type</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+                    {SPACE_KINDS[activeSpace].map((kind) => (
+                      <button key={kind} type="button" onClick={() => changeTypeForSelected(kind)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                        {PRIM_ICONS[kind]} {kind}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  style={{ marginTop: 12, width: '100%', padding: '6px', background: '#3a1a1a', color: '#ff8888', border: '1px solid #662222', borderRadius: 4 }}
+                  onClick={deleteMultiSelected}
+                >
+                  Delete Selected ({multiSelectedIds.length})
+                </button>
+              </div>
+            ) : selectedObject ? (
               <div className="be-inspector-form">
                 <Field label="Name">
                   <input

@@ -51,6 +51,8 @@ type ViewportProps = {
   space: Space
   objects: SceneObject[]
   selectedId: string | null
+  multiSelectedIds: string[]
+  onShiftSelect: (id: string) => void
   active2DTool: TwoDTool
   threeDEditMode: ThreeDEditMode
   transformMode: TransformMode | null
@@ -275,6 +277,8 @@ export function Viewport({
   space,
   objects,
   selectedId,
+  multiSelectedIds,
+  onShiftSelect,
   active2DTool,
   threeDEditMode,
   transformMode,
@@ -359,6 +363,8 @@ export function Viewport({
           <TwoDViewport
             objects={objects}
             selectedId={selectedId}
+            multiSelectedIds={multiSelectedIds}
+            onShiftSelect={onShiftSelect}
             active2DTool={active2DTool}
             grabMode={grabMode}
             axisLock={axisLock}
@@ -383,6 +389,8 @@ export function Viewport({
             <Viewport3D
               objects={objects}
               selectedId={selectedId}
+              multiSelectedIds={multiSelectedIds}
+              onShiftSelect={onShiftSelect}
               editMode={threeDEditMode}
               transformMode={transformMode}
               selectedFace={selectedCubeFace}
@@ -434,6 +442,8 @@ export function Viewport({
 function TwoDViewport({
   objects,
   selectedId,
+  multiSelectedIds,
+  onShiftSelect,
   active2DTool,
   grabMode,
   axisLock,
@@ -449,6 +459,8 @@ function TwoDViewport({
 }: {
   objects: SceneObject[]
   selectedId: string | null
+  multiSelectedIds: string[]
+  onShiftSelect: (id: string) => void
   active2DTool: TwoDTool
   grabMode: boolean
   axisLock: AxisLock
@@ -672,7 +684,7 @@ function TwoDViewport({
 
     onSelect(null)
 
-    if (grabMode || active2DTool === 'move') {
+    if (grabMode || active2DTool === 'move' || active2DTool === 'scale') {
       return
     }
 
@@ -683,7 +695,7 @@ function TwoDViewport({
     const start = snapPoint(worldPoint, !event.altKey)
     setInteraction({
       kind: 'draw',
-      tool: active2DTool,
+      tool: active2DTool as TwoDDrawTool,
       pointerId: event.pointerId,
       start,
       current: start,
@@ -698,7 +710,11 @@ function TwoDViewport({
 
     event.stopPropagation()
     event.preventDefault()
-    onSelect(object.id)
+    if (event.shiftKey && onShiftSelect) {
+      onShiftSelect(object.id)
+    } else {
+      onSelect(object.id)
+    }
     const rect = svgRef.current.getBoundingClientRect()
     const startPointer = pointerToWorldPoint(
       event.clientX,
@@ -839,6 +855,7 @@ function TwoDViewport({
               key={object.id}
               object={object}
               selected={selectedObject?.id === object.id}
+              multiSelected={multiSelectedIds.includes(object.id)}
               active2DTool={active2DTool}
               onPointerDown={beginGrab}
             />
@@ -908,25 +925,28 @@ function TwoDViewport({
 function TwoDObject({
   object,
   selected,
+  multiSelected,
   active2DTool,
   onPointerDown,
 }: {
   object: SceneObject
   selected: boolean
+  multiSelected?: boolean
   active2DTool: TwoDTool
   onPointerDown: (
     object: SceneObject,
     event: ReactPointerEvent<SVGGElement>,
   ) => void
 }) {
+  const isEffectivelySelected = selected || multiSelected
   const color = formatColor(object.color)
-  const strokeColor = selected ? '#ffd39c' : color
+  const strokeColor = isEffectivelySelected ? '#ffd39c' : color
   const common = {
     onPointerDown: (event: ReactPointerEvent<SVGGElement>) =>
       onPointerDown(object, event),
   }
 
-  const showScaleHandles = selected && active2DTool === 'scale'
+  const showScaleHandles = isEffectivelySelected && active2DTool === 'scale'
 
   if (object.kind === 'line') {
     const halfLength = object.length / 2
@@ -934,7 +954,7 @@ function TwoDObject({
       <g
         key={object.id}
         transform={`translate(${object.position[0]} ${-object.position[1]}) rotate(${-object.rotation[2]}) scale(${object.scale[0]} ${object.scale[1]})`}
-        opacity={selected ? 1 : 0.96}
+        opacity={isEffectivelySelected ? 1 : 0.96}
         {...common}
       >
         <line
