@@ -9,6 +9,8 @@ import {
   type TransformMode,
   type ThreeDEditMode,
   type AxisLock,
+  type CubeFaceKey,
+  type CubeEdgeKey,
   computeCubeExtents,
   getObjectDimensions,
   getObjectVertices,
@@ -109,8 +111,16 @@ function WindowObject({ object, selected }: { object: SceneObject; selected: boo
 }
 
 function MeasureLabels({ object }: { object: SceneObject }) {
-  const vertices = useMemo(() => getObjectVertices(object), [object])
-  const dimensions = useMemo(() => getObjectDimensions(object), [object])
+  const vertices = useMemo(
+    () => getObjectVertices(object),
+    [object.kind, object.size, object.radius, object.height, object.width,
+     object.depth, object.facePulls, object.edgePulls]
+  )
+  const dimensions = useMemo(
+    () => getObjectDimensions(object),
+    [object.kind, object.size, object.radius, object.height, object.width,
+     object.depth, object.facePulls, object.edgePulls]
+  )
   const worldVertices = useMemo(() => {
     const matrix = new THREE.Matrix4()
     const position = new THREE.Vector3(...object.position)
@@ -158,6 +168,15 @@ const labelStyle: React.CSSProperties = {
   userSelect: 'none',
   textShadow: '0 1px 2px rgba(0,0,0,0.8)',
   border: '1px solid rgba(138, 180, 248, 0.3)',
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const parts = hex.replace('#', '').match(/[\da-f]{2}/gi) ?? ['ff', 'ff', 'ff']
+  return {
+    r: parseInt(parts[0] ?? 'ff', 16) / 255,
+    g: parseInt(parts[1] ?? 'ff', 16) / 255,
+    b: parseInt(parts[2] ?? 'ff', 16) / 255,
+  }
 }
 
 function SelectableObject({
@@ -317,8 +336,7 @@ function SelectableObject({
             onClick={(e) => { 
               e.stopPropagation(); 
               if (armedFavorite && onFaceColorChange) {
-                const [r, g, b] = armedFavorite.match(/\w\w/g)!.map(x => parseInt(x, 16) / 255)
-                onFaceColorChange(faceKey, { r, g, b })
+                onFaceColorChange(faceKey, hexToRgb(armedFavorite))
               } else {
                 onSelectFace(faceKey);
                 onSelect(object.id); 
@@ -357,8 +375,7 @@ function SelectableObject({
             onClick={(e) => {
               e.stopPropagation()
               if (armedFavorite && onFaceColorChange) {
-                const [r, g, b] = armedFavorite.match(/\w\w/g)!.map(x => parseInt(x, 16) / 255)
-                onFaceColorChange(topKey, { r, g, b })
+                onFaceColorChange(topKey, hexToRgb(armedFavorite))
               } else {
                 onSelectFace(topKey as any)
                 onSelect(object.id)
@@ -387,8 +404,7 @@ function SelectableObject({
             onClick={(e) => {
               e.stopPropagation()
               if (armedFavorite && onFaceColorChange) {
-                const [r, g, b] = armedFavorite.match(/\w\w/g)!.map(x => parseInt(x, 16) / 255)
-                onFaceColorChange(bottomKey, { r, g, b })
+                onFaceColorChange(bottomKey, hexToRgb(armedFavorite))
               } else {
                 onSelectFace(bottomKey as any)
                 onSelect(object.id)
@@ -425,8 +441,7 @@ function SelectableObject({
               onClick={(e) => {
                 e.stopPropagation()
                 if (armedFavorite && onFaceColorChange) {
-                  const [r, g, b] = armedFavorite.match(/\w\w/g)!.map(x => parseInt(x, 16) / 255)
-                  onFaceColorChange(faceKey, { r, g, b })
+                  onFaceColorChange(faceKey, hexToRgb(armedFavorite))
                 } else {
                   onSelectFace(faceKey as any)
                   onSelect(object.id)
@@ -445,11 +460,7 @@ function SelectableObject({
           )
         }
 
-        return (
-          <group>
-            {meshes}
-          </group>
-        )
+        return <>{meshes}</>
       })()
     : null
 
@@ -550,9 +561,9 @@ function SelectableObject({
   return (
     <>
       {content}
-      {selected && !shouldShowPrismGizmo && transformMode && (
+      {selected && !shouldShowPrismGizmo && transformMode && groupRef.current && (
         <TransformControls
-          object={groupRef.current ?? undefined}
+          object={groupRef.current}
           mode={transformMode}
           enabled
           onMouseDown={() => {
@@ -578,7 +589,7 @@ import { useThree } from '@react-three/fiber'
 
 function CameraHandler({ enabled }: { enabled: boolean }) {
   const { camera } = useThree()
-  const controlsRef = useRef<any>(null)
+  const controlsRef = useRef<any>(null) // OrbitControls type is complex, keeping any but fixing the prop typing for Viewport3D below
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -659,14 +670,14 @@ interface Viewport3DProps {
   multiSelectedIds?: string[]
   onShiftSelect?: (id: string) => void
   editMode: ThreeDEditMode
-  selectedFace: string | null
-  selectedEdge: string | null
+  selectedFace: CubeFaceKey | null
+  selectedEdge: CubeEdgeKey | null
   transformMode: TransformMode | null
   grabMode?: boolean
   axisLock?: AxisLock
   onSelect: (id: string | null) => void
-  onSelectFace: (faceKey: any | null) => void
-  onSelectEdge: (edgeKey: any | null) => void
+  onSelectFace: (faceKey: CubeFaceKey | null) => void
+  onSelectEdge: (edgeKey: CubeEdgeKey | null) => void
   onUpdateObject: (id: string, changes: Partial<SceneObject>) => void
   lastMeasuredId: string | null
   armedFavorite?: string | null
