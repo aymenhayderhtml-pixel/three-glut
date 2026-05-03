@@ -255,6 +255,7 @@ function App() {
     } catch { }
     return [null, null, null, null, null]
   })
+  const [pullDialog, setPullDialog] = useState<{ faceKey: CubeFaceKey; label: string } | null>(null)
 
 
   const [multiSelection, setMultiSelection] = useState<Record<Space, string[]>>({ '2d': [], '3d': [] })
@@ -301,7 +302,10 @@ function App() {
   const canExportCode = exportedObjects.length > 0
 
   useEffect(() => {
-    storeSceneDocument(sceneDocument)
+    const timer = setTimeout(() => {
+      storeSceneDocument(sceneDocument)
+    }, 1000)
+    return () => clearTimeout(timer)
   }, [sceneDocument])
 
   const makeSnapshot = () =>
@@ -664,17 +668,10 @@ function App() {
 
   const handlePullAction = useCallback(() => {
     if (activeSpace === '3d' && selectedCubeFace && selectedObject) {
-      const currentPull = selectedObject.facePulls[selectedCubeFace] || 0
       const label = CUBE_FACE_LABELS[selectedCubeFace] || selectedCubeFace
-      const val = window.prompt(`Enter pull distance for ${label}:`, '0.5')
-      if (val !== null) {
-        const num = parseFloat(val)
-        if (!isNaN(num)) {
-          updateCubeFacePull(selectedCubeFace, currentPull + num, true)
-        }
-      }
+      setPullDialog({ faceKey: selectedCubeFace, label })
     }
-  }, [activeSpace, selectedObject, selectedCubeFace, updateCubeFacePull])
+  }, [activeSpace, selectedObject, selectedCubeFace])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -2148,6 +2145,70 @@ function App() {
         className="visually-hidden" onChange={importSceneJson} />
 
       <ContextMenu state={contextMenu} onAction={handleContextMenuAction} onClose={() => setContextMenu(null)} />
+
+      {pullDialog && (
+        <div className="be-inline-dialog-overlay" onClick={() => setPullDialog(null)}>
+          <div className="be-inline-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="be-inline-dialog-header">
+              <span>Pull {pullDialog.label}</span>
+              <button type="button" onClick={() => setPullDialog(null)}>✕</button>
+            </div>
+            <div className="be-inline-dialog-body">
+              <div style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', marginBottom: 8 }}>
+                Enter relative distance (e.g. 0.5 to expand, -0.5 to shrink)
+              </div>
+              <input
+                type="number"
+                autoFocus
+                defaultValue="0.5"
+                step="0.05"
+                className="be-inline-dialog-input"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const val = parseFloat((e.target as HTMLInputElement).value)
+                    if (!isNaN(val)) {
+                      const currentPull = selectedObject?.facePulls[pullDialog.faceKey] ?? 0
+                      updateCubeFacePull(pullDialog.faceKey, currentPull + val, true)
+                    }
+                    setPullDialog(null)
+                  } else if (e.key === 'Escape') {
+                    setPullDialog(null)
+                  }
+                }}
+              />
+              <div style={{ marginTop: 12, display: 'flex', gap: 6 }}>
+                <button
+                  type="button"
+                  className="be-btn-primary"
+                  style={{ margin: 0, flex: 1 }}
+                  onClick={(e) => {
+                    const input = e.currentTarget.parentElement?.previousElementSibling as HTMLInputElement
+                    const val = parseFloat(input.value)
+                    if (!isNaN(val)) {
+                      const currentPull = selectedObject?.facePulls[pullDialog.faceKey] ?? 0
+                      updateCubeFacePull(pullDialog.faceKey, currentPull + val, true)
+                    }
+                    setPullDialog(null)
+                  }}
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  className="be-btn-secondary"
+                  style={{ margin: 0, flex: 1 }}
+                  onClick={() => setPullDialog(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+              <div style={{ marginTop: 10, fontSize: '0.6rem', color: 'var(--be-text-dim)', textAlign: 'center' }}>
+                Press <strong>Enter</strong> to apply · <strong>Esc</strong> to cancel
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

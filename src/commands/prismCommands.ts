@@ -26,6 +26,7 @@ export function extrudeFace(mesh: PrismMesh, faceId: string, delta: number): Pri
   for (const fid of affectedFaceIds) {
     const f = newMesh.faces.find(f => f.id === fid);
     if (f) {
+      f.vertices = f.indices.map(i => ({ ...newMesh.vertices[i] }));
       f.normal = computeNormal(f.vertices);
       f.center = computeCenter(f.vertices);
     }
@@ -66,7 +67,11 @@ export function bevelEdge(mesh: PrismMesh, edgeId: string, amount: number): Pris
   }
   for (const fid of affectedIds) {
     const f = newMesh.faces.find(f => f.id === fid);
-    if (f) { f.normal = computeNormal(f.vertices); f.center = computeCenter(f.vertices); }
+    if (f) {
+      f.vertices = f.indices.map(i => ({ ...newMesh.vertices[i] }));
+      f.normal = computeNormal(f.vertices);
+      f.center = computeCenter(f.vertices);
+    }
   }
   return newMesh;
 }

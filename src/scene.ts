@@ -428,9 +428,9 @@ export function createSceneObject(kind: PrimitiveKind, index: number): SceneObje
         faceColors: {
           top: object.color,
           bottom: object.color,
-          side0: object.color,
-          side1: object.color,
-          side2: object.color,
+          side_0: object.color,
+          side_1: object.color,
+          side_2: object.color,
         },
         prismParams: {
           sides: 3,

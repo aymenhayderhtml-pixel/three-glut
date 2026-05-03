@@ -1037,3 +1037,68 @@ button:disabled { cursor: not-allowed; opacity: 0.32; }
   min-height: 0;
   overflow: hidden;
 }
+
+/* ── Inline Dialog ── */
+.be-inline-dialog-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+}
+
+.be-inline-dialog {
+  background: var(--be-surface-2, #1e1e2e);
+  border: 1px solid var(--be-border-2, #333);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  width: 280px;
+  overflow: hidden;
+}
+
+.be-inline-dialog-header {
+  padding: 10px 14px;
+  background: var(--be-surface, #151515);
+  border-bottom: 1px solid var(--be-border, #222);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--be-text-strong, #fff);
+}
+
+.be-inline-dialog-header button {
+  background: transparent;
+  border: none;
+  color: var(--be-text-dim, #666);
+  cursor: pointer;
+  padding: 4px;
+  font-size: 1rem;
+}
+
+.be-inline-dialog-body {
+  padding: 16px;
+}
+
+.be-inline-dialog-input {
+  width: 100%;
+  background: var(--be-bg, #0a0a0a);
+  border: 1px solid var(--be-accent, #3ec6a8);
+  border-radius: 4px;
+  color: #fff;
+  padding: 8px 12px;
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  text-align: center;
+}
+
+.be-inline-dialog-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(62, 198, 168, 0.2);
+}

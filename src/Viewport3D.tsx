@@ -7,6 +7,8 @@ import {
   CUBE_FACE_KEYS,
   type SceneObject,
   type TransformMode,
+  type ThreeDEditMode,
+  type AxisLock,
   computeCubeExtents,
   getObjectDimensions,
   getObjectVertices,
@@ -431,12 +433,8 @@ function SelectableObject({
           )
         }
 
-        const rotX = (object.rotation[0] * Math.PI) / 180
-        const rotY = (object.rotation[1] * Math.PI) / 180
-        const rotZ = (object.rotation[2] * Math.PI) / 180
-
         return (
-          <group rotation={[-rotX, -rotY, -rotZ]}>
+          <group>
             {meshes}
           </group>
         )
@@ -643,6 +641,26 @@ function CameraHandler({ enabled }: { enabled: boolean }) {
   )
 }
 
+interface Viewport3DProps {
+  objects: SceneObject[]
+  selectedId: string | null
+  multiSelectedIds?: string[]
+  onShiftSelect?: (id: string) => void
+  editMode: ThreeDEditMode
+  selectedFace: string | null
+  selectedEdge: string | null
+  transformMode: TransformMode | null
+  grabMode?: boolean
+  axisLock?: AxisLock
+  onSelect: (id: string | null) => void
+  onSelectFace: (faceKey: any | null) => void
+  onSelectEdge: (edgeKey: any | null) => void
+  onUpdateObject: (id: string, changes: Partial<SceneObject>) => void
+  lastMeasuredId: string | null
+  armedFavorite?: string | null
+  onFaceColorChange?: (faceKey: string, color: { r: number; g: number; b: number }) => void
+}
+
 export default function Viewport3D({
   objects,
   selectedId,
@@ -661,7 +679,7 @@ export default function Viewport3D({
   lastMeasuredId,
   armedFavorite,
   onFaceColorChange,
-}: any) {
+}: Viewport3DProps) {
   const selectedObject = objects.find((obj: SceneObject) => obj.id === selectedId)
   const disableOrbit = selectedObject?.kind === 'prism' && (editMode === 'face' || editMode === 'edge')
   const [transformDragging, setTransformDragging] = useState(false)
