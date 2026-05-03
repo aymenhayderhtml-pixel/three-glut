@@ -460,9 +460,13 @@ export function cloneSceneObject(source: SceneObject): SceneObject {
     position: [...source.position] as [number, number, number],
     rotation: [...source.rotation] as [number, number, number],
     scale: [...source.scale] as [number, number, number],
+    color: [...source.color] as [number, number, number],
     faceColors: { ...(source.faceColors || {}) },
     facePulls: { ...(source.facePulls || {}) },
     edgePulls: { ...(source.edgePulls || {}) },
+    holes: source.holes.map(h => ({ ...h, position: [...h.position] as [number, number, number] })),
+    prismMesh: source.prismMesh ? structuredClone(source.prismMesh) : undefined,
+    prismParams: source.prismParams ? { ...source.prismParams } : undefined,
   }
 }
 
@@ -477,7 +481,7 @@ export function copySceneObject(source: SceneObject): SceneObject {
     edgePulls: { ...source.edgePulls },
     faceColors: { ...source.faceColors },
     holes: source.holes.map(h => ({ ...h, position: [...h.position] as [number, number, number] })),
-    prismMesh: source.prismMesh ? JSON.parse(JSON.stringify(source.prismMesh)) : undefined,
+    prismMesh: source.prismMesh ? structuredClone(source.prismMesh) : undefined,
     prismParams: source.prismParams ? { ...source.prismParams } : undefined,
   }
 }
@@ -551,7 +555,7 @@ function hydrateSceneObject(
       : {},
     holes: Array.isArray(rawRecord.holes) ? rawRecord.holes as HoleData[] : [],
     prismMesh: rawRecord.prismMesh && typeof rawRecord.prismMesh === 'object' 
-      ? JSON.parse(JSON.stringify(rawRecord.prismMesh)) as PrismMesh 
+      ? structuredClone(rawRecord.prismMesh) as PrismMesh 
       : undefined,
     prismParams: rawRecord.prismParams && typeof rawRecord.prismParams === 'object'
       ? {

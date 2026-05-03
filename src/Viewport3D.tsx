@@ -219,7 +219,7 @@ function SelectableObject({
       return
     }
     setPrismMesh(generatePrismMesh(object.prismParams?.sides ?? 3, object.height, object.radius))
-  }, [object])
+  }, [object.kind, object.prismMesh, object.prismParams, object.height, object.radius])
 
   const materials = useMemo(() => {
     if (object.kind !== 'cube' && object.kind !== 'prism') return null
@@ -228,36 +228,48 @@ function SelectableObject({
       const c = object.faceColors?.[face] ?? object.color
       return new THREE.Color(c[0], c[1], c[2])
     }
-    const getEmissive = (face: string) => {
-      if (!isEffectivelySelected) return 0x000000
-      if (editMode === 'face' && selectedFace === face) return 0x554422
-      return 0x332200
-    }
 
     if (object.kind === 'cube') {
       // Three.js BoxGeometry material order: px, nx, py, ny, pz, nz
       return [
-        new THREE.MeshStandardMaterial({ color: getColor('xPos'), emissive: getEmissive('xPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-        new THREE.MeshStandardMaterial({ color: getColor('xNeg'), emissive: getEmissive('xNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-        new THREE.MeshStandardMaterial({ color: getColor('yPos'), emissive: getEmissive('yPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-        new THREE.MeshStandardMaterial({ color: getColor('yNeg'), emissive: getEmissive('yNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-        new THREE.MeshStandardMaterial({ color: getColor('zPos'), emissive: getEmissive('zPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-        new THREE.MeshStandardMaterial({ color: getColor('zNeg'), emissive: getEmissive('zNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('xPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('xNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('yPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('yNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('zPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('zNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
       ]
     }
 
     if (object.kind === 'prism') {
       // Three.js CylinderGeometry material order: 0: sides, 1: top, 2: bottom
-      // For sides, we use the first side color as a representative for now
       return [
-        new THREE.MeshStandardMaterial({ color: getColor('side_0'), emissive: getEmissive('side_0'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-        new THREE.MeshStandardMaterial({ color: getColor('top'), emissive: getEmissive('top'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-        new THREE.MeshStandardMaterial({ color: getColor('bottom'), emissive: getEmissive('bottom'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('side_0'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('top'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('bottom'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
       ]
     }
 
     return null
-  }, [object.kind, object.color, object.faceColors, selected, multiSelected, selectedFace, editMode])
+  }, [object.kind, object.color, object.faceColors])
+
+  // Update emissive imperatively when selection changes — no material rebuild
+  useEffect(() => {
+    if (!materials) return
+    materials.forEach((mat, i) => {
+      const faceKeys = object.kind === 'cube'
+        ? ['xPos', 'xNeg', 'yPos', 'yNeg', 'zPos', 'zNeg']
+        : ['side_0', 'top', 'bottom']
+      const faceKey = faceKeys[i]
+      if (!isEffectivelySelected) {
+        mat.emissive.set(0x000000)
+      } else if (editMode === 'face' && selectedFace === faceKey) {
+        mat.emissive.set(0x554422)
+      } else {
+        mat.emissive.set(0x332200)
+      }
+    })
+  }, [materials, isEffectivelySelected, editMode, selectedFace, object.kind])
 
   useEffect(() => {
     return () => {
