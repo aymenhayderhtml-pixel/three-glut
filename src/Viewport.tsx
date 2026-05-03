@@ -63,6 +63,8 @@ type ViewportProps = {
   on2DToolChange: (tool: TwoDTool) => void
   onThreeDEditModeChange: (mode: ThreeDEditMode) => void
   onSelectCubeFace: (faceKey: CubeFaceKey | null) => void
+  onFaceColorChange: (faceKey: string, color: { r: number; g: number; b: number }) => void
+  armedFavorite: string | null
   onSelectCubeEdge: (edgeKey: CubeEdgeKey | null) => void
   onSelect: (id: string | null) => void
   onBeginSceneTransaction: () => void
@@ -289,6 +291,8 @@ export function Viewport({
   on2DToolChange,
   onThreeDEditModeChange,
   onSelectCubeFace,
+  onFaceColorChange,
+  armedFavorite,
   onSelectCubeEdge,
   onSelect,
   onBeginSceneTransaction,
@@ -399,6 +403,8 @@ export function Viewport({
               axisLock={axisLock}
               onSelect={onSelect}
               onSelectFace={onSelectCubeFace}
+              onFaceColorChange={onFaceColorChange}
+              armedFavorite={armedFavorite}
               onSelectEdge={onSelectCubeEdge}
               onBeginSceneTransaction={onBeginSceneTransaction}
               onCommitSceneTransaction={onCommitSceneTransaction}

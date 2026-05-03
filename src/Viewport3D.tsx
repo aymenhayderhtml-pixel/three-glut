@@ -173,6 +173,8 @@ function SelectableObject({
   onUpdateObject,
   lastMeasuredId,
   onTransformDraggingChange,
+  armedFavorite,
+  onFaceColorChange,
 }: {
   object: SceneObject
   selected: boolean
@@ -188,6 +190,8 @@ function SelectableObject({
   onUpdateObject: (id: string, changes: Partial<SceneObject>) => void
   lastMeasuredId: string | null
   onTransformDraggingChange: (dragging: boolean) => void
+  armedFavorite?: string | null
+  onFaceColorChange?: (faceKey: string, color: { r: number; g: number; b: number }) => void
 }) {
   const isEffectivelySelected = selected || multiSelected
   const groupRef = useRef<THREE.Group>(null)
@@ -216,7 +220,8 @@ function SelectableObject({
   }, [object])
 
   const materials = useMemo(() => {
-    if (object.kind !== 'cube') return null
+    if (object.kind !== 'cube' && object.kind !== 'prism') return null
+
     const getColor = (face: string) => {
       const c = object.faceColors?.[face] ?? object.color
       return new THREE.Color(c[0], c[1], c[2])
@@ -226,15 +231,30 @@ function SelectableObject({
       if (editMode === 'face' && selectedFace === face) return 0x554422
       return 0x332200
     }
-    // Three.js BoxGeometry material order: px, nx, py, ny, pz, nz
-    return [
-      new THREE.MeshStandardMaterial({ color: getColor('xPos'), emissive: getEmissive('xPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-      new THREE.MeshStandardMaterial({ color: getColor('xNeg'), emissive: getEmissive('xNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-      new THREE.MeshStandardMaterial({ color: getColor('yPos'), emissive: getEmissive('yPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-      new THREE.MeshStandardMaterial({ color: getColor('yNeg'), emissive: getEmissive('yNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-      new THREE.MeshStandardMaterial({ color: getColor('zPos'), emissive: getEmissive('zPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-      new THREE.MeshStandardMaterial({ color: getColor('zNeg'), emissive: getEmissive('zNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
-    ]
+
+    if (object.kind === 'cube') {
+      // Three.js BoxGeometry material order: px, nx, py, ny, pz, nz
+      return [
+        new THREE.MeshStandardMaterial({ color: getColor('xPos'), emissive: getEmissive('xPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('xNeg'), emissive: getEmissive('xNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('yPos'), emissive: getEmissive('yPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('yNeg'), emissive: getEmissive('yNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('zPos'), emissive: getEmissive('zPos'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('zNeg'), emissive: getEmissive('zNeg'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+      ]
+    }
+
+    if (object.kind === 'prism') {
+      // Three.js CylinderGeometry material order: 0: sides, 1: top, 2: bottom
+      // For sides, we use the first side color as a representative for now
+      return [
+        new THREE.MeshStandardMaterial({ color: getColor('side_0'), emissive: getEmissive('side_0'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('top'), emissive: getEmissive('top'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+        new THREE.MeshStandardMaterial({ color: getColor('bottom'), emissive: getEmissive('bottom'), polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }),
+      ]
+    }
+
+    return null
   }, [object.kind, object.color, object.faceColors, selected, multiSelected, selectedFace, editMode])
 
   useEffect(() => {
@@ -255,7 +275,7 @@ function SelectableObject({
     })
   }
 
-  const faceMeshes = object.kind === 'cube' && editMode === 'face'
+  const cubeFaceMeshes = object.kind === 'cube' && (editMode === 'face' || armedFavorite)
     ? CUBE_FACE_KEYS.map((faceKey) => {
         const ext = computeCubeExtents(object)
         const half = {
@@ -276,7 +296,21 @@ function SelectableObject({
           : [ext.xNeg + ext.xPos, ext.yNeg + ext.yPos, 0.08]
         const isSelectedFace = selectedFace === faceKey
         return (
-          <mesh key={faceKey} position={pos} scale={size} onClick={(e) => { e.stopPropagation(); onSelectFace(faceKey); onSelect(object.id); }}>
+          <mesh 
+            key={faceKey} 
+            position={pos} 
+            scale={size} 
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              if (armedFavorite && onFaceColorChange) {
+                const [r, g, b] = armedFavorite.match(/\w\w/g)!.map(x => parseInt(x, 16) / 255)
+                onFaceColorChange(faceKey, { r, g, b })
+              } else {
+                onSelectFace(faceKey);
+                onSelect(object.id); 
+              }
+            }}
+          >
             <boxGeometry args={[1, 1, 1]} />
             <meshBasicMaterial
               color={isSelectedFace ? '#ffd39c' : '#7fe0ff'}
@@ -288,6 +322,128 @@ function SelectableObject({
         )
       })
     : null
+
+  const prismFaceMeshes = object.kind === 'prism' && (editMode === 'face' || armedFavorite)
+    ? (() => {
+        const sides = object.prismParams?.sides ?? object.sides ?? 3
+        const radius = object.prismParams?.radius ?? object.radius ?? 1
+        const height = object.prismParams?.height ?? object.height ?? 1
+        const halfH = height / 2
+        const angleStep = (2 * Math.PI) / sides
+        const meshes = []
+
+        // Top cap
+        const topKey = 'top'
+        const isTopSelected = selectedFace === topKey
+        meshes.push(
+          <mesh
+            key={topKey}
+            position={[0, halfH + 0.01, 0]}
+            rotation={[Math.PI / 2, 0, 0]}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (armedFavorite && onFaceColorChange) {
+                const [r, g, b] = armedFavorite.match(/\w\w/g)!.map(x => parseInt(x, 16) / 255)
+                onFaceColorChange(topKey, { r, g, b })
+              } else {
+                onSelectFace(topKey as any)
+                onSelect(object.id)
+              }
+            }}
+          >
+            <circleGeometry args={[radius, sides]} />
+            <meshBasicMaterial
+              color={isTopSelected ? '#ffd39c' : '#7fe0ff'}
+              transparent
+              opacity={isTopSelected ? 0.42 : 0.18}
+              depthWrite={false}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        )
+
+        // Bottom cap
+        const bottomKey = 'bottom'
+        const isBottomSelected = selectedFace === bottomKey
+        meshes.push(
+          <mesh
+            key={bottomKey}
+            position={[0, -halfH - 0.01, 0]}
+            rotation={[Math.PI / 2, 0, 0]}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (armedFavorite && onFaceColorChange) {
+                const [r, g, b] = armedFavorite.match(/\w\w/g)!.map(x => parseInt(x, 16) / 255)
+                onFaceColorChange(bottomKey, { r, g, b })
+              } else {
+                onSelectFace(bottomKey as any)
+                onSelect(object.id)
+              }
+            }}
+          >
+            <circleGeometry args={[radius, sides]} />
+            <meshBasicMaterial
+              color={isBottomSelected ? '#ffd39c' : '#7fe0ff'}
+              transparent
+              opacity={isBottomSelected ? 0.42 : 0.18}
+              depthWrite={false}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
+        )
+
+        // Side faces
+        for (let i = 0; i < sides; i++) {
+          const faceKey = `side_${i}`
+          const isSelected = selectedFace === faceKey
+          const angle = (i + 0.5) * angleStep
+          const nx = Math.cos(angle)
+          const nz = Math.sin(angle)
+          const cx = nx * radius
+          const cz = nz * radius
+          const faceW = 2 * radius * Math.sin(Math.PI / sides)
+
+          meshes.push(
+            <mesh
+              key={faceKey}
+              position={[cx, 0, cz]}
+              rotation={[0, -angle, 0]}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (armedFavorite && onFaceColorChange) {
+                  const [r, g, b] = armedFavorite.match(/\w\w/g)!.map(x => parseInt(x, 16) / 255)
+                  onFaceColorChange(faceKey, { r, g, b })
+                } else {
+                  onSelectFace(faceKey as any)
+                  onSelect(object.id)
+                }
+              }}
+            >
+              <planeGeometry args={[faceW, height]} />
+              <meshBasicMaterial
+                color={isSelected ? '#ffd39c' : '#7fe0ff'}
+                transparent
+                opacity={isSelected ? 0.42 : 0.18}
+                depthWrite={false}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          )
+        }
+
+        const rotX = (object.rotation[0] * Math.PI) / 180
+        const rotY = (object.rotation[1] * Math.PI) / 180
+        const rotZ = (object.rotation[2] * Math.PI) / 180
+
+        return (
+          <group rotation={[-rotX, -rotY, -rotZ]}>
+            {meshes}
+          </group>
+        )
+      })()
+    : null
+
+  const faceMeshes = cubeFaceMeshes ?? prismFaceMeshes
 
   const edgeLines = object.kind === 'cube' && editMode === 'edge'
     ? CUBE_EDGE_KEYS.map((edgeKey) => {
@@ -329,15 +485,22 @@ function SelectableObject({
         e.stopPropagation()
         if (e.shiftKey && onShiftSelect) {
           onShiftSelect(object.id)
+          return
+        }
+        
+        // If armed, do nothing here — faceMeshes handle it
+        if (armedFavorite) return
+        
+        // Face selection via Raycasting (faceIndex)
+        if (object.kind === 'cube' && editMode === 'face' && e.faceIndex !== undefined && e.faceIndex !== null) {
+          const faceGroup = Math.floor(e.faceIndex / 2)
+          const keys = ['xPos', 'xNeg', 'yPos', 'yNeg', 'zPos', 'zNeg'] as const
+          const faceKey = keys[faceGroup]
+
+          onSelectFace(faceKey)
+          onSelect(object.id)
         } else {
           onSelect(object.id)
-          
-          // Face selection via Raycasting (faceIndex)
-          if (object.kind === 'cube' && editMode === 'face' && e.faceIndex !== undefined && e.faceIndex !== null) {
-            const faceGroup = Math.floor(e.faceIndex / 2)
-            const keys = ['xPos', 'xNeg', 'yPos', 'yNeg', 'zPos', 'zNeg'] as const
-            onSelectFace(keys[faceGroup])
-          }
         }
       }}
     >
@@ -496,6 +659,8 @@ export default function Viewport3D({
   onSelectEdge,
   onUpdateObject,
   lastMeasuredId,
+  armedFavorite,
+  onFaceColorChange,
 }: any) {
   const selectedObject = objects.find((obj: SceneObject) => obj.id === selectedId)
   const disableOrbit = selectedObject?.kind === 'prism' && (editMode === 'face' || editMode === 'edge')
@@ -530,6 +695,8 @@ export default function Viewport3D({
             onUpdateObject={onUpdateObject}
             lastMeasuredId={lastMeasuredId}
             onTransformDraggingChange={setTransformDragging}
+            armedFavorite={armedFavorite}
+            onFaceColorChange={onFaceColorChange}
           />
         ))}
       </Canvas>

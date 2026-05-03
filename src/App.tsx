@@ -247,11 +247,12 @@ function App() {
   const [arrayCount, setArrayCount] = useState(3)
   const [arrayGap, setArrayGap] = useState(0.5)
   const [moveStep, setMoveStep] = useState(0.5)
+  const [armedFavorite, setArmedFavorite] = useState<string | null>(null)
   const [favoriteColors, setFavoriteColors] = useState<(string | null)[]>(() => {
     try {
       const stored = localStorage.getItem('three-glut-fav-colors')
       if (stored) return JSON.parse(stored)
-    } catch {}
+    } catch { }
     return [null, null, null, null, null]
   })
 
@@ -265,18 +266,18 @@ function App() {
   const multiSelectedObjects = activeScene.filter(o => multiSelectedIds.includes(o.id))
   const selectedObject =
     activeScene.find((object) => object.id === activeSelectionId) ?? null
-  const canSubEditCube =
-    activeSpace === '3d' && selectedObject?.kind === 'cube'
-  const effectiveThreeDEditMode: ThreeDEditMode = canSubEditCube
+  const canSubEdit =
+    activeSpace === '3d' && (selectedObject?.kind === 'cube' || selectedObject?.kind === 'prism')
+  const effectiveThreeDEditMode: ThreeDEditMode = canSubEdit
     ? threeDEditMode
     : 'object'
   const effectiveSelectedCubeFace =
-    canSubEditCube && effectiveThreeDEditMode === 'face'
-      ? (selectedCubeFace ?? CUBE_FACE_KEYS[0])
+    canSubEdit && effectiveThreeDEditMode === 'face'
+      ? selectedCubeFace
       : null
   const effectiveSelectedCubeEdge =
-    canSubEditCube && effectiveThreeDEditMode === 'edge'
-      ? (selectedCubeEdge ?? CUBE_EDGE_KEYS[0])
+    canSubEdit && effectiveThreeDEditMode === 'edge'
+      ? selectedCubeEdge
       : null
 
   const sceneDocument: SceneDocument = useMemo(
@@ -366,9 +367,9 @@ function App() {
 
       const now = makeSnapshot()
       const previous = current.past[current.past.length - 1]
-      
+
       restoreSnapshot(previous)
-      
+
       return {
         past: current.past.slice(0, -1),
         future: [now, ...current.future],
@@ -384,9 +385,9 @@ function App() {
 
       const now = makeSnapshot()
       const next = current.future[0]
-      
+
       restoreSnapshot(next)
-      
+
       return {
         past: [...current.past, now],
         future: current.future.slice(1),
@@ -489,7 +490,7 @@ function App() {
   }
 
   // Multiply scale or add rotation delta to all selected on one axis
-  const applyDeltaToMulti = (key: 'scale' | 'rotation', axis: 0 | 1 | 2, delta: number) => {
+  const applyDeltaToMulti = (key: 'scale' | 'rotation' | 'position', axis: 0 | 1 | 2, delta: number) => {
     const ids = new Set(multiSelectedIds)
     commitSceneChange(() => {
       updateSceneObjects(activeSpace, (current) =>
@@ -539,23 +540,23 @@ function App() {
 
   const createArray = () => {
     if (!selectedObject) return
-    
+
     const axisIndex = arrayAxis === 'x' ? 0 : arrayAxis === 'y' ? 1 : 2
     const copies: SceneObject[] = []
-    
+
     // Create (count - 1) copies
     const copiesToCreate = Math.max(0, arrayCount - 1)
-    
+
     for (let i = 0; i < copiesToCreate; i++) {
       const dim = getObjectDimensions(selectedObject)
       const offset = (dim[axisIndex] + arrayGap) * (i + 1)
-      
+
       const copy = cloneSceneObject(selectedObject)
       copy.name = `${selectedObject.name} Array ${i + 1}`
       copy.position[axisIndex] += offset
       copies.push(copy)
     }
-    
+
     if (copies.length > 0) {
       commitSceneChange(() => {
         updateSceneObjects(activeSpace, (current) => [...current, ...copies])
@@ -572,13 +573,9 @@ function App() {
     updateSelected({ position: next })
   }, [selectedObject, updateSelected])
 
-  const applyFavorite = (hex: string) => {
-    if (hasMultiSelect) {
-      updateMultiSelected({ color: hexToVec3(hex) })
-      return
-    }
-    if (!selectedObject) return
-    updateSelected({ color: hexToVec3(hex) })
+
+  const onUpdateCubeFaceColor = (faceKey: string, color: { r: number; g: number; b: number }) => {
+    updateSelected({ faceColors: { [faceKey]: [color.r, color.g, color.b] } })
   }
 
   const updateSelectedVector = (
@@ -1110,37 +1107,37 @@ function App() {
   )
 
   // Color dot helper: converts [r,g,b] (0-1) to CSS string
-  const objDotColor = (c: [number,number,number]) =>
-    `rgb(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)})`
+  const objDotColor = (c: [number, number, number]) =>
+    `rgb(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)})`
 
   const TOOL_3D = [
-    { id:'select',  icon:'◁', label:'Select'  },
-    { id:'move',    icon:'✥', label:'Move'    },
-    { id:'rotate',  icon:'↻', label:'Rotate'  },
-    { id:'scale',   icon:'⤢', label:'Scale'   },
-    { id:'pull',    icon:'↑', label:'Pull'    },
-    { id:'measure', icon:'⟷', label:'Measure' },
-    { id:'hole',    icon:'⊙', label:'Hole'    },
+    { id: 'select', icon: '◁', label: 'Select' },
+    { id: 'move', icon: '✥', label: 'Move' },
+    { id: 'rotate', icon: '↻', label: 'Rotate' },
+    { id: 'scale', icon: '⤢', label: 'Scale' },
+    { id: 'pull', icon: '↑', label: 'Pull' },
+    { id: 'measure', icon: '⟷', label: 'Measure' },
+    { id: 'hole', icon: '⊙', label: 'Hole' },
   ] as const
 
   const TOOL_2D = [
-    { id:'select', icon:'◁', label:'Select' },
-    { id:'line',   icon:'╱', label:'Line'   },
-    { id:'rect',   icon:'▭', label:'Rect'   },
-    { id:'circle', icon:'○', label:'Circle' },
-    { id:'measure',icon:'⟷', label:'Measure'},
+    { id: 'select', icon: '◁', label: 'Select' },
+    { id: 'line', icon: '╱', label: 'Line' },
+    { id: 'rect', icon: '▭', label: 'Rect' },
+    { id: 'circle', icon: '○', label: 'Circle' },
+    { id: 'measure', icon: '⟷', label: 'Measure' },
   ] as const
 
-  const PRIM_ICONS: Partial<Record<PrimitiveKind,string>> = {
-    cube:'■', sphere:'●', cone:'▲', torus:'◎', teapot:'☕', ground:'▬',
-    prism:'△', line:'╱', rect:'▭', circle:'○', polygon:'⬡',
+  const PRIM_ICONS: Partial<Record<PrimitiveKind, string>> = {
+    cube: '■', sphere: '●', cone: '▲', torus: '◎', teapot: '☕', ground: '▬',
+    prism: '△', line: '╱', rect: '▭', circle: '○', polygon: '⬡',
   }
 
   const MODES: { id: ThreeDEditMode; label: string }[] = [
-    { id:'object',  label:'■ Object' },
-    { id:'face',    label:'— Face'   },
-    { id:'edge',    label:'— Edge'   },
-    { id:'measure', label:'/ Line'   },
+    { id: 'object', label: '■ Object' },
+    { id: 'face', label: '— Face' },
+    { id: 'edge', label: '— Edge' },
+    { id: 'measure', label: '/ Line' },
   ]
 
   return (
@@ -1177,21 +1174,20 @@ function App() {
             <button
               key={t.id}
               type="button"
-              className={`be-tool${
-                t.id === 'select' && effectiveThreeDEditMode === 'object' && !transformMode ? ' active' :
-                t.id === 'move'   && effectiveThreeDEditMode === 'object' && transformMode === 'translate' ? ' active' :
-                t.id === 'rotate' && effectiveThreeDEditMode === 'object' && transformMode === 'rotate' ? ' active' :
-                t.id === 'scale'  && effectiveThreeDEditMode === 'object' && transformMode === 'scale' ? ' active' :
-                t.id === 'measure' && effectiveThreeDEditMode === 'measure' ? ' active' : ''
-              }`}
+              className={`be-tool${t.id === 'select' && effectiveThreeDEditMode === 'object' && !transformMode ? ' active' :
+                  t.id === 'move' && effectiveThreeDEditMode === 'object' && transformMode === 'translate' ? ' active' :
+                    t.id === 'rotate' && effectiveThreeDEditMode === 'object' && transformMode === 'rotate' ? ' active' :
+                      t.id === 'scale' && effectiveThreeDEditMode === 'object' && transformMode === 'scale' ? ' active' :
+                        t.id === 'measure' && effectiveThreeDEditMode === 'measure' ? ' active' : ''
+                }`}
               onClick={() => {
-                if (t.id === 'select')  { updateThreeDEditMode('object'); setTransformMode(null) }
-                if (t.id === 'move')    { if (selectedObject) { updateThreeDEditMode('object'); setTransformMode('translate') } }
-                if (t.id === 'rotate')  { if (selectedObject) { updateThreeDEditMode('object'); setTransformMode('rotate') } }
-                if (t.id === 'scale')   { if (selectedObject) { updateThreeDEditMode('object'); setTransformMode('scale') } }
-                if (t.id === 'pull')    handlePullAction()
+                if (t.id === 'select') { updateThreeDEditMode('object'); setTransformMode(null) }
+                if (t.id === 'move') { if (selectedObject) { updateThreeDEditMode('object'); setTransformMode('translate') } }
+                if (t.id === 'rotate') { if (selectedObject) { updateThreeDEditMode('object'); setTransformMode('rotate') } }
+                if (t.id === 'scale') { if (selectedObject) { updateThreeDEditMode('object'); setTransformMode('scale') } }
+                if (t.id === 'pull') handlePullAction()
                 if (t.id === 'measure') updateThreeDEditMode('measure')
-                if (t.id === 'hole')    handleContextMenuAction({ type: 'add-hole' } as any)
+                if (t.id === 'hole') handleContextMenuAction({ type: 'add-hole' } as any)
               }}
             >
               <span className="be-tool-icon">{t.icon}</span>
@@ -1247,51 +1243,51 @@ function App() {
 
         {/* ── LEFT PANEL ── */}
         <aside className="be-left-panel">
-        <CollapsibleSection title="Primitives">
-          <ul className="be-prim-list">
-            {SPACE_KINDS[activeSpace].map((kind) => (
-              <li
-                key={kind}
-                className="be-prim-item"
-                onClick={() => addObject(kind)}
-              >
-                <span className="be-prim-icon">{PRIM_ICONS[kind] ?? '□'}</span>
-                {KIND_LABELS[kind]}
-              </li>
-            ))}
-          </ul>
-        </CollapsibleSection>
+          <CollapsibleSection title="Primitives" defaultOpen={false}>
+            <ul className="be-prim-list">
+              {SPACE_KINDS[activeSpace].map((kind) => (
+                <li
+                  key={kind}
+                  className="be-prim-item"
+                  onClick={() => addObject(kind)}
+                >
+                  <span className="be-prim-icon">{PRIM_ICONS[kind] ?? '□'}</span>
+                  {KIND_LABELS[kind]}
+                </li>
+              ))}
+            </ul>
+          </CollapsibleSection>
 
-        <CollapsibleSection title="Objects">
-          <ul className="be-obj-list">
-            {activeScene.map((obj) => (
-              <li
-                key={obj.id}
-                className={`be-obj-item${obj.id === activeSelectionId ? ' active' : ''}${multiSelectedIds.includes(obj.id) ? ' multi-active' : ''}`}
-                onClick={(e) => {
-                  if (e.shiftKey) shiftSelectObject(obj.id)
-                  else selectObject(obj.id)
-                }}
-              >
-                <span
-                  className="be-obj-dot"
-                  style={{ background: objDotColor(obj.color) }}
-                />
-                <span className="be-obj-name">
-                  {obj.name}
-                </span>
-                <button
-                  type="button"
-                  className="be-obj-delete"
-                  onClick={() => deleteObjectById(obj.id)}
-                >×</button>
-              </li>
-            ))}
-          </ul>
-        </CollapsibleSection>
+          <CollapsibleSection title="Objects" defaultOpen={false}>
+            <ul className="be-obj-list">
+              {activeScene.map((obj) => (
+                <li
+                  key={obj.id}
+                  className={`be-obj-item${obj.id === activeSelectionId ? ' active' : ''}${multiSelectedIds.includes(obj.id) ? ' multi-active' : ''}`}
+                  onClick={(e) => {
+                    if (e.shiftKey) shiftSelectObject(obj.id)
+                    else selectObject(obj.id)
+                  }}
+                >
+                  <span
+                    className="be-obj-dot"
+                    style={{ background: objDotColor(obj.color) }}
+                  />
+                  <span className="be-obj-name">
+                    {obj.name}
+                  </span>
+                  <button
+                    type="button"
+                    className="be-obj-delete"
+                    onClick={() => deleteObjectById(obj.id)}
+                  >×</button>
+                </li>
+              ))}
+            </ul>
+          </CollapsibleSection>
 
-        {/* ── COLOR PANEL ── */}
-        <CollapsibleSection title="Colors">
+          {/* ── COLOR PANEL ── */}
+          <CollapsibleSection title="Colors" defaultOpen={false}>
             {hasMultiSelect ? (
               <div style={{ padding: '6px 10px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1316,12 +1312,12 @@ function App() {
                 {/* Global object color / Selected Face color */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', flex: 1 }}>
-                    {effectiveSelectedCubeFace ? `Face: ${CUBE_FACE_LABELS[effectiveSelectedCubeFace].replace(' face','')}` : 'Object'}
+                    {effectiveSelectedCubeFace ? `Face: ${CUBE_FACE_LABELS[effectiveSelectedCubeFace].replace(' face', '')}` : 'Object'}
                   </span>
                   <input
                     type="color"
-                    value={vec3ToHex(effectiveSelectedCubeFace && selectedObject.faceColors?.[effectiveSelectedCubeFace] 
-                      ? selectedObject.faceColors[effectiveSelectedCubeFace]! 
+                    value={vec3ToHex(effectiveSelectedCubeFace && selectedObject.faceColors?.[effectiveSelectedCubeFace]
+                      ? selectedObject.faceColors[effectiveSelectedCubeFace]!
                       : selectedObject.color)}
                     style={{ width: 32, height: 22, padding: 1, borderRadius: 4, border: '1px solid var(--be-border-2)', cursor: 'pointer', background: 'var(--be-bg)' }}
                     onChange={(e) => {
@@ -1343,8 +1339,8 @@ function App() {
                   />
                   <div style={{
                     width: 18, height: 18, borderRadius: 3, flexShrink: 0,
-                    background: objDotColor(effectiveSelectedCubeFace && selectedObject.faceColors?.[effectiveSelectedCubeFace] 
-                      ? selectedObject.faceColors[effectiveSelectedCubeFace]! 
+                    background: objDotColor(effectiveSelectedCubeFace && selectedObject.faceColors?.[effectiveSelectedCubeFace]
+                      ? selectedObject.faceColors[effectiveSelectedCubeFace]!
                       : selectedObject.color),
                     border: '1px solid var(--be-border-2)'
                   }} />
@@ -1354,7 +1350,7 @@ function App() {
                 {selectedObject.kind === 'cube' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--be-text-dim)' }}>Face Colors</span>
-                    {(['yPos','yNeg','xNeg','xPos','zPos','zNeg'] as const).map((fk) => {
+                    {(['yPos', 'yNeg', 'xNeg', 'xPos', 'zPos', 'zNeg'] as const).map((fk) => {
                       const faceHex = selectedObject.faceColors[fk]
                         ? vec3ToHex(selectedObject.faceColors[fk]!)
                         : vec3ToHex(selectedObject.color)
@@ -1407,7 +1403,7 @@ function App() {
                         ? vec3ToHex(selectedObject.faceColors[fk]!)
                         : vec3ToHex(selectedObject.color)
                       const hasOverride = !!selectedObject.faceColors[fk]
-                      const label = fk === 'top' ? 'Top' : fk === 'bottom' ? 'Bottom' : `Side ${parseInt(fk.replace('side','')) + 1}`
+                      const label = fk === 'top' ? 'Top' : fk === 'bottom' ? 'Bottom' : `Side ${parseInt(fk.replace('side', '')) + 1}`
                       return (
                         <div key={fk} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontSize: '0.62rem', color: 'var(--be-text-dim)', width: 52, flexShrink: 0 }}>
@@ -1457,22 +1453,22 @@ function App() {
                       <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                         <button
                           type="button"
-                          title={hex ? `Slot ${i+1}: ${hex} — left-click to apply, right-click to save` : `Slot ${i+1}: empty — left-click to save current color`}
+                          title={hex ? `Slot ${i + 1}: ${hex} — left-click to apply, right-click to save` : `Slot ${i + 1}: empty — left-click to save current color`}
                           style={{
                             width: 22,
                             height: 22,
                             borderRadius: 4,
-                            border: hex ? '2px solid var(--be-border-2)' : '2px dashed var(--be-border-2)',
                             background: hex ?? 'var(--be-surface-3)',
                             cursor: 'pointer',
                             padding: 0,
                             position: 'relative',
                             transition: 'border-color 100ms, transform 80ms',
+                            border: armedFavorite === hex && hex ? '2px solid #fff' : hex ? '2px solid var(--be-border-2)' : '2px dashed var(--be-border-2)',
+                            outline: armedFavorite === hex && hex ? '2px solid #f90' : 'none',
                           }}
                           onClick={() => {
                             if (hex) {
-                              applyFavorite(hex)
-                              setCopyStatus(`Applied slot ${i + 1}`)
+                              setArmedFavorite(prev => prev === hex ? null : hex)
                             } else {
                               saveFavorite(i)
                             }
@@ -1482,7 +1478,7 @@ function App() {
                             saveFavorite(i)
                           }}
                         >
-                          {!hex && <span style={{ fontSize: '0.55rem', color: 'var(--be-text-dim)' }}>{i+1}</span>}
+                          {!hex && <span style={{ fontSize: '0.55rem', color: 'var(--be-text-dim)' }}>{i + 1}</span>}
                         </button>
                         <button
                           type="button"
@@ -1504,8 +1500,8 @@ function App() {
                 Select an object to edit colors.
               </div>
             )}
-        </CollapsibleSection>
-      </aside>
+          </CollapsibleSection>
+        </aside>
 
         {/* ── VIEWPORT ── */}
         <section className="be-viewport-wrap">
@@ -1525,6 +1521,8 @@ function App() {
             on2DToolChange={setActive2DTool}
             onThreeDEditModeChange={updateThreeDEditMode}
             onSelectCubeFace={setSelectedCubeFace}
+            onFaceColorChange={onUpdateCubeFaceColor}
+            armedFavorite={armedFavorite}
             onSelectCubeEdge={setSelectedCubeEdge}
             onSelect={selectObject}
             onBeginSceneTransaction={beginSceneTransaction}
@@ -1577,333 +1575,381 @@ function App() {
           <div className="be-right-panel-inner">
             {/* INSPECTOR */}
             <CollapsibleSection title={hasMultiSelect ? `Inspector — ${multiSelectedIds.length} Selected` : `Inspector${selectedObject ? ` — ${KIND_LABELS[selectedObject.kind]}` : ''}`}>
-            
-            {hasMultiSelect ? (
-              <div className="be-inspector-form">
-                <div style={{ padding: '8px', background: 'var(--be-bg)', borderRadius: 4, border: '1px solid var(--be-border-2)', marginBottom: 12 }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--be-text)', fontWeight: 600 }}>{multiSelectedIds.length} objects selected</span>
-                  <p style={{ fontSize: '0.6rem', color: 'var(--be-text-dim)', marginTop: 4, lineHeight: 1.4 }}>
-                    Bulk edit mode. Changes apply to all selected objects.
-                  </p>
+
+              {hasMultiSelect ? (
+                <div className="be-inspector-form">
+                  <div style={{ padding: '8px', background: 'var(--be-bg)', borderRadius: 4, border: '1px solid var(--be-border-2)', marginBottom: 12 }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--be-text)', fontWeight: 600 }}>{multiSelectedIds.length} objects selected</span>
+                    <p style={{ fontSize: '0.6rem', color: 'var(--be-text-dim)', marginTop: 4, lineHeight: 1.4 }}>
+                      Bulk edit mode. Changes apply to all selected objects.
+                    </p>
+                  </div>
+
+                  <div className="field">
+                    <span>Delta Scale</span>
+                    <div className="vector-group">
+                      {(['x', 'y', 'z'] as const).map((axis, i) => (
+                        <button key={axis} type="button" onClick={() => applyDeltaToMulti('scale', i as 0 | 1 | 2, 1.5)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                          {axis.toUpperCase()} ×1.5
+                        </button>
+                      ))}
+                    </div>
+                    <div className="vector-group" style={{ marginTop: 4 }}>
+                      {(['x', 'y', 'z'] as const).map((axis, i) => (
+                        <button key={axis} type="button" onClick={() => applyDeltaToMulti('scale', i as 0 | 1 | 2, 0.5)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                          {axis.toUpperCase()} ×0.5
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="field">
+                    <span>Delta Rotate</span>
+                    <div className="vector-group">
+                      {(['x', 'y', 'z'] as const).map((axis, i) => (
+                        <button key={axis} type="button" onClick={() => applyDeltaToMulti('rotation', i as 0 | 1 | 2, 90)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                          {axis.toUpperCase()} +90°
+                        </button>
+                      ))}
+                    </div>
+                    <div className="vector-group" style={{ marginTop: 4 }}>
+                      {(['x', 'y', 'z'] as const).map((axis, i) => (
+                        <button key={axis} type="button" onClick={() => applyDeltaToMulti('rotation', i as 0 | 1 | 2, -90)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                          {axis.toUpperCase()} -90°
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="field">
+                    <span>Delta Move</span>
+                    <div className="vector-group">
+                      {(['x', 'y', 'z'] as const).map((axis, i) => (
+                        <button key={axis} type="button" onClick={() => applyDeltaToMulti('position', i as 0 | 1 | 2, 1)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                          {axis.toUpperCase()} +1
+                        </button>
+                      ))}
+                    </div>
+                    <div className="vector-group" style={{ marginTop: 4 }}>
+                      {(['x', 'y', 'z'] as const).map((axis, i) => (
+                        <button key={axis} type="button" onClick={() => applyDeltaToMulti('position', i as 0 | 1 | 2, -1)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                          {axis.toUpperCase()} -1
+                        </button>
+                      ))}
+                    </div>
+                    <div className="vector-group" style={{ marginTop: 4 }}>
+                      {(['x', 'y', 'z'] as const).map((axis, i) => (
+                        <button key={axis} type="button" onClick={() => applyDeltaToMulti('position', i as 0 | 1 | 2, 0.5)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                          {axis.toUpperCase()} +0.5
+                        </button>
+                      ))}
+                    </div>
+                    <div className="vector-group" style={{ marginTop: 4 }}>
+                      {(['x', 'y', 'z'] as const).map((axis, i) => (
+                        <button key={axis} type="button" onClick={() => applyDeltaToMulti('position', i as 0 | 1 | 2, -0.5)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                          {axis.toUpperCase()} -0.5
+                        </button>
+                      ))}
+                    </div>
+                    <div className="vector-group" style={{ marginTop: 4 }}>
+                      {(['x', 'y', 'z'] as const).map((axis, i) => (
+                        <button key={axis} type="button" onClick={() => applyDeltaToMulti('position', i as 0 | 1 | 2, 0.1)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                          {axis.toUpperCase()} +0.1
+                        </button>
+                      ))}
+                    </div>
+                    <div className="vector-group" style={{ marginTop: 4 }}>
+                      {(['x', 'y', 'z'] as const).map((axis, i) => (
+                        <button key={axis} type="button" onClick={() => applyDeltaToMulti('position', i as 0 | 1 | 2, -0.1)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                          {axis.toUpperCase()} -0.1
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="field">
+                    <span>Change Type</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+                      {SPACE_KINDS[activeSpace].map((kind) => (
+                        <button key={kind} type="button" onClick={() => changeTypeForSelected(kind)} style={{ fontSize: '0.6rem', padding: 4 }}>
+                          {PRIM_ICONS[kind]} {kind}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    style={{ marginTop: 12, width: '100%', padding: '6px', background: '#3a1a1a', color: '#ff8888', border: '1px solid #662222', borderRadius: 4 }}
+                    onClick={deleteMultiSelected}
+                  >
+                    Delete Selected ({multiSelectedIds.length})
+                  </button>
                 </div>
+              ) : selectedObject ? (
+                <div className="be-inspector-form">
+                  <Field label="Name">
+                    <input
+                      type="text"
+                      value={selectedObject.name}
+                      onChange={(e) => updateSelected({ name: e.target.value }, false)}
+                      onBlur={(e) => {
+                        const t = e.target.value.trim()
+                        if (t && t !== selectedObject.name) updateSelected({ name: t })
+                        else if (!t) updateSelected({ name: selectedObject.name }, false)
+                      }}
+                    />
+                  </Field>
 
-                <div className="field">
-                  <span>Delta Scale</span>
-                  <div className="vector-group">
-                    {(['x', 'y', 'z'] as const).map((axis, i) => (
-                      <button key={axis} type="button" onClick={() => applyDeltaToMulti('scale', i as 0 | 1 | 2, 1.5)} style={{ fontSize: '0.6rem', padding: 4 }}>
-                        {axis.toUpperCase()} ×1.5
-                      </button>
-                    ))}
-                  </div>
-                  <div className="vector-group" style={{ marginTop: 4 }}>
-                    {(['x', 'y', 'z'] as const).map((axis, i) => (
-                      <button key={axis} type="button" onClick={() => applyDeltaToMulti('scale', i as 0 | 1 | 2, 0.5)} style={{ fontSize: '0.6rem', padding: 4 }}>
-                        {axis.toUpperCase()} ×0.5
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                  <Field label="Color">
+                    <input
+                      type="color"
+                      value={vec3ToHex(selectedObject.color)}
+                      onChange={(e) => updateSelected({ color: hexToVec3(e.target.value) }, false)}
+                    />
+                  </Field>
 
-                <div className="field">
-                  <span>Delta Rotate</span>
-                  <div className="vector-group">
-                    {(['x', 'y', 'z'] as const).map((axis, i) => (
-                      <button key={axis} type="button" onClick={() => applyDeltaToMulti('rotation', i as 0 | 1 | 2, 90)} style={{ fontSize: '0.6rem', padding: 4 }}>
-                        {axis.toUpperCase()} +90°
-                      </button>
-                    ))}
-                  </div>
-                  <div className="vector-group" style={{ marginTop: 4 }}>
-                    {(['x', 'y', 'z'] as const).map((axis, i) => (
-                      <button key={axis} type="button" onClick={() => applyDeltaToMulti('rotation', i as 0 | 1 | 2, -90)} style={{ fontSize: '0.6rem', padding: 4 }}>
-                        {axis.toUpperCase()} -90°
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                  {renderVectorFieldGroup('Position', 'position', selectedObject.position, 0.1)}
 
-                <div className="field">
-                  <span>Change Type</span>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
-                    {SPACE_KINDS[activeSpace].map((kind) => (
-                      <button key={kind} type="button" onClick={() => changeTypeForSelected(kind)} style={{ fontSize: '0.6rem', padding: 4 }}>
-                        {PRIM_ICONS[kind]} {kind}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                  {/* Move Gizmo UI */}
+                  {selectedObject.space === '3d' && (
+                    <div style={{ padding: '0 8px 10px', display: 'flex', flexDirection: 'column', gap: 6, borderBottom: '1px solid var(--be-border-1)', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--be-text-dim)', textTransform: 'uppercase' }}>Quick Move</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: '0.55rem', color: 'var(--be-text-dim)' }}>Step:</span>
+                          <input
+                            type="number"
+                            step={0.1}
+                            min={0.1}
+                            style={{ width: 35, fontSize: '0.65rem', padding: '1px 2px', background: 'var(--be-bg)', color: 'var(--be-text)', border: '1px solid var(--be-border-2)' }}
+                            value={moveStep}
+                            onChange={(e) => setMoveStep(parseFloat(e.target.value) || 0.1)}
+                          />
+                        </div>
+                      </div>
 
-                <button
-                  type="button"
-                  style={{ marginTop: 12, width: '100%', padding: '6px', background: '#3a1a1a', color: '#ff8888', border: '1px solid #662222', borderRadius: 4 }}
-                  onClick={deleteMultiSelected}
-                >
-                  Delete Selected ({multiSelectedIds.length})
-                </button>
-              </div>
-            ) : selectedObject ? (
-              <div className="be-inspector-form">
-                <Field label="Name">
-                  <input
-                    type="text"
-                    value={selectedObject.name}
-                    onChange={(e) => updateSelected({ name: e.target.value }, false)}
-                    onBlur={(e) => {
-                      const t = e.target.value.trim()
-                      if (t && t !== selectedObject.name) updateSelected({ name: t })
-                      else if (!t) updateSelected({ name: selectedObject.name }, false)
-                    }}
-                  />
-                </Field>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+                        <button className="gizmo-btn" style={{ color: 'var(--be-accent)' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('x', -1, moveStep) }}>← X-</button>
+                        <button className="gizmo-btn" style={{ color: 'var(--be-accent)' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('y', 1, moveStep) }}>↑ Y+</button>
+                        <button className="gizmo-btn" style={{ color: 'var(--be-accent)' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('x', 1, moveStep) }}>→ X+</button>
 
-                <Field label="Color">
-                  <input
-                    type="color"
-                    value={vec3ToHex(selectedObject.color)}
-                    onChange={(e) => updateSelected({ color: hexToVec3(e.target.value) }, false)}
-                  />
-                </Field>
+                        <button className="gizmo-btn" style={{ color: '#4488ff' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('z', -1, moveStep) }}>W (Z-)</button>
+                        <button className="gizmo-btn" style={{ color: 'var(--be-accent)' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('y', -1, moveStep) }}>↓ Y-</button>
+                        <button className="gizmo-btn" style={{ color: '#4488ff' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('z', 1, moveStep) }}>S (Z+)</button>
+                      </div>
+                    </div>
+                  )}
 
-                {renderVectorFieldGroup('Position', 'position', selectedObject.position, 0.1)}
+                  {renderVectorFieldGroup('Rotation', 'rotation', selectedObject.rotation, 1)}
+                  {renderVectorFieldGroup('Scale', 'scale', selectedObject.scale, 0.1)}
 
-                {/* Move Gizmo UI */}
-                {selectedObject.space === '3d' && (
-                  <div style={{ padding: '0 8px 10px', display: 'flex', flexDirection: 'column', gap: 6, borderBottom: '1px solid var(--be-border-1)', marginBottom: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--be-text-dim)', textTransform: 'uppercase' }}>Quick Move</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ fontSize: '0.55rem', color: 'var(--be-text-dim)' }}>Step:</span>
-                        <input 
-                          type="number" 
-                          step={0.1} 
-                          min={0.1}
-                          style={{ width: 35, fontSize: '0.65rem', padding: '1px 2px', background: 'var(--be-bg)', color: 'var(--be-text)', border: '1px solid var(--be-border-2)' }}
-                          value={moveStep}
-                          onChange={(e) => setMoveStep(parseFloat(e.target.value) || 0.1)}
+                  {/* Array tool section */}
+                  {selectedObject.space === '3d' && (
+                    <div className="be-sub-section" style={{ marginTop: 15, paddingTop: 10, borderTop: '1px solid var(--be-border-1)' }}>
+                      <div style={{ fontSize: '0.65rem', fontWeight: 700, marginBottom: 8, color: 'var(--be-text-dim)', textTransform: 'uppercase' }}>Array / Duplicate</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontSize: '0.6rem', display: 'block', marginBottom: 2 }}>Axis</span>
+                            <select
+                              style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', background: 'var(--be-bg)', color: 'var(--be-text)', border: '1px solid var(--be-border-2)' }}
+                              value={arrayAxis}
+                              onChange={(e) => setArrayAxis(e.target.value as any)}
+                            >
+                              <option value="x">X Axis</option>
+                              <option value="y">Y Axis</option>
+                              <option value="z">Z Axis</option>
+                            </select>
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontSize: '0.6rem', display: 'block', marginBottom: 2 }}>Count</span>
+                            <input
+                              type="number"
+                              style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', background: 'var(--be-bg)', color: 'var(--be-text)', border: '1px solid var(--be-border-2)' }}
+                              min={2}
+                              max={50}
+                              value={arrayCount}
+                              onChange={(e) => setArrayCount(parseInt(e.target.value) || 1)}
+                            />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontSize: '0.6rem', display: 'block', marginBottom: 2 }}>Gap</span>
+                            <input
+                              type="number"
+                              step={0.1}
+                              style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', background: 'var(--be-bg)', color: 'var(--be-text)', border: '1px solid var(--be-border-2)' }}
+                              value={arrayGap}
+                              onChange={(e) => setArrayGap(parseFloat(e.target.value) || 0)}
+                            />
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          style={{ marginTop: 4, padding: '4px 8px', fontSize: '0.7rem', cursor: 'pointer', background: 'var(--be-accent)', color: 'white', border: 'none', borderRadius: 4, fontWeight: 700 }}
+                          onClick={createArray}
+                        >
+                          Create Array
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Window-specific fields */}
+                  {selectedObject.kind === 'window' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 0', borderTop: '1px solid var(--be-border-1)' }}>
+                      <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--be-text-dim)', marginBottom: 2 }}>Window</span>
+                      <NumberField label="Width" value={selectedObject.width} min={0.3} step={0.1}
+                        onChange={(v) => updateSelected({ width: Math.max(0.3, v) })} />
+                      <NumberField label="Height" value={selectedObject.height} min={0.3} step={0.1}
+                        onChange={(v) => updateSelected({ height: Math.max(0.3, v) })} />
+                      <NumberField label="Border" value={selectedObject.borderThickness ?? 0.12} min={0.02} step={0.01}
+                        onChange={(v) => updateSelected({ borderThickness: Math.max(0.02, v) })} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', flex: 1 }}>Frame Color</span>
+                        <input
+                          type="color"
+                          value={vec3ToHex(selectedObject.frameColor ?? [0.45, 0.32, 0.22])}
+                          style={{ width: 32, height: 22, padding: 1, borderRadius: 4, border: '1px solid var(--be-border-2)', cursor: 'pointer' }}
+                          onChange={(e) => updateSelected({ frameColor: hexToVec3(e.target.value) }, false)}
+                          onBlur={(e) => updateSelected({ frameColor: hexToVec3(e.target.value) })}
                         />
                       </div>
-                    </div>
-                    
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
-                      <button className="gizmo-btn" style={{ color: 'var(--be-accent)' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('x', -1, moveStep) }}>← X-</button>
-                      <button className="gizmo-btn" style={{ color: 'var(--be-accent)' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('y', 1, moveStep) }}>↑ Y+</button>
-                      <button className="gizmo-btn" style={{ color: 'var(--be-accent)' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('x', 1, moveStep) }}>→ X+</button>
-                      
-                      <button className="gizmo-btn" style={{ color: '#4488ff' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('z', -1, moveStep) }}>W (Z-)</button>
-                      <button className="gizmo-btn" style={{ color: 'var(--be-accent)' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('y', -1, moveStep) }}>↓ Y-</button>
-                      <button className="gizmo-btn" style={{ color: '#4488ff' }} onClick={(e) => { e.currentTarget.blur(); moveSelected('z', 1, moveStep) }}>S (Z+)</button>
-                    </div>
-                  </div>
-                )}
-
-                {renderVectorFieldGroup('Rotation', 'rotation', selectedObject.rotation, 1)}
-                {renderVectorFieldGroup('Scale',    'scale',    selectedObject.scale,    0.1)}
-
-                {/* Array tool section */}
-                {selectedObject.space === '3d' && (
-                  <div className="be-sub-section" style={{ marginTop: 15, paddingTop: 10, borderTop: '1px solid var(--be-border-1)' }}>
-                    <div style={{ fontSize: '0.65rem', fontWeight: 700, marginBottom: 8, color: 'var(--be-text-dim)', textTransform: 'uppercase' }}>Array / Duplicate</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <div style={{ flex: 1 }}>
-                          <span style={{ fontSize: '0.6rem', display: 'block', marginBottom: 2 }}>Axis</span>
-                          <select 
-                            style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', background: 'var(--be-bg)', color: 'var(--be-text)', border: '1px solid var(--be-border-2)' }}
-                            value={arrayAxis}
-                            onChange={(e) => setArrayAxis(e.target.value as any)}
-                          >
-                            <option value="x">X Axis</option>
-                            <option value="y">Y Axis</option>
-                            <option value="z">Z Axis</option>
-                          </select>
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <span style={{ fontSize: '0.6rem', display: 'block', marginBottom: 2 }}>Count</span>
-                          <input 
-                            type="number" 
-                            style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', background: 'var(--be-bg)', color: 'var(--be-text)', border: '1px solid var(--be-border-2)' }}
-                            min={2} 
-                            max={50}
-                            value={arrayCount}
-                            onChange={(e) => setArrayCount(parseInt(e.target.value) || 1)}
-                          />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <span style={{ fontSize: '0.6rem', display: 'block', marginBottom: 2 }}>Gap</span>
-                          <input 
-                            type="number" 
-                            step={0.1}
-                            style={{ width: '100%', fontSize: '0.7rem', padding: '2px 4px', background: 'var(--be-bg)', color: 'var(--be-text)', border: '1px solid var(--be-border-2)' }}
-                            value={arrayGap}
-                            onChange={(e) => setArrayGap(parseFloat(e.target.value) || 0)}
-                          />
-                        </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', flex: 1 }}>Glass Color</span>
+                        <input
+                          type="color"
+                          value={vec3ToHex(selectedObject.color)}
+                          style={{ width: 32, height: 22, padding: 1, borderRadius: 4, border: '1px solid var(--be-border-2)', cursor: 'pointer' }}
+                          onChange={(e) => updateSelected({ color: hexToVec3(e.target.value) }, false)}
+                          onBlur={(e) => updateSelected({ color: hexToVec3(e.target.value) })}
+                        />
                       </div>
-                      <button 
-                        type="button" 
-                        style={{ marginTop: 4, padding: '4px 8px', fontSize: '0.7rem', cursor: 'pointer', background: 'var(--be-accent)', color: 'white', border: 'none', borderRadius: 4, fontWeight: 700 }}
-                        onClick={createArray}
-                      >
-                        Create Array
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', flex: 1 }}>Opacity</span>
+                        <input
+                          type="range"
+                          min={0} max={1} step={0.05}
+                          value={selectedObject.glassOpacity ?? 0.35}
+                          style={{ flex: 2 }}
+                          onChange={(e) => updateSelected({ glassOpacity: parseFloat(e.target.value) }, false)}
+                          onMouseUp={(e) => updateSelected({ glassOpacity: parseFloat((e.target as HTMLInputElement).value) })}
+                        />
+                        <span style={{ fontSize: '0.6rem', color: 'var(--be-text-dim)', width: 28 }}>
+                          {((selectedObject.glassOpacity ?? 0.35) * 100).toFixed(0)}%
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )}
-
-                {/* Window-specific fields */}
-                {selectedObject.kind === 'window' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 0', borderTop: '1px solid var(--be-border-1)' }}>
-                    <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--be-text-dim)', marginBottom: 2 }}>Window</span>
-                    <NumberField label="Width" value={selectedObject.width} min={0.3} step={0.1}
-                      onChange={(v) => updateSelected({ width: Math.max(0.3, v) })} />
-                    <NumberField label="Height" value={selectedObject.height} min={0.3} step={0.1}
-                      onChange={(v) => updateSelected({ height: Math.max(0.3, v) })} />
-                    <NumberField label="Border" value={selectedObject.borderThickness ?? 0.12} min={0.02} step={0.01}
-                      onChange={(v) => updateSelected({ borderThickness: Math.max(0.02, v) })} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', flex: 1 }}>Frame Color</span>
-                      <input
-                        type="color"
-                        value={vec3ToHex(selectedObject.frameColor ?? [0.45,0.32,0.22])}
-                        style={{ width: 32, height: 22, padding: 1, borderRadius: 4, border: '1px solid var(--be-border-2)', cursor: 'pointer' }}
-                        onChange={(e) => updateSelected({ frameColor: hexToVec3(e.target.value) }, false)}
-                        onBlur={(e)  => updateSelected({ frameColor: hexToVec3(e.target.value) })}
-                      />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', flex: 1 }}>Glass Color</span>
-                      <input
-                        type="color"
-                        value={vec3ToHex(selectedObject.color)}
-                        style={{ width: 32, height: 22, padding: 1, borderRadius: 4, border: '1px solid var(--be-border-2)', cursor: 'pointer' }}
-                        onChange={(e) => updateSelected({ color: hexToVec3(e.target.value) }, false)}
-                        onBlur={(e)  => updateSelected({ color: hexToVec3(e.target.value) })}
-                      />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: '0.65rem', color: 'var(--be-text-dim)', flex: 1 }}>Opacity</span>
-                      <input
-                        type="range"
-                        min={0} max={1} step={0.05}
-                        value={selectedObject.glassOpacity ?? 0.35}
-                        style={{ flex: 2 }}
-                        onChange={(e) => updateSelected({ glassOpacity: parseFloat(e.target.value) }, false)}
-                        onMouseUp={(e) => updateSelected({ glassOpacity: parseFloat((e.target as HTMLInputElement).value) })}
-                      />
-                      <span style={{ fontSize: '0.6rem', color: 'var(--be-text-dim)', width: 28 }}>
-                        {((selectedObject.glassOpacity ?? 0.35) * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* 2D-specific fields */}
-                {selectedObject.space === '2d' && (<>
-                  {selectedObject.kind === 'line' && (<>
-                    <NumberField label="Length" value={selectedObject.length} min={0.15} step={0.1}
-                      onChange={(v) => updateSelected({ length: Math.max(0.15, v) })} />
-                    <NumberField label="Thickness" value={selectedObject.thickness} min={1} step={0.1}
-                      onChange={(v) => updateSelected({ thickness: Math.max(1, v) })} />
-                  </>)}
-                  {selectedObject.kind === 'rect' && (<>
-                    <NumberField label="Width" value={selectedObject.width} min={0.15} step={0.1}
-                      onChange={(v) => updateSelected({ width: Math.max(0.15, v) })} />
-                    <NumberField label="Height" value={selectedObject.height} min={0.15} step={0.1}
-                      onChange={(v) => updateSelected({ height: Math.max(0.15, v) })} />
-                  </>)}
-                  {selectedObject.kind === 'circle' && (
-                    <NumberField label="Radius" value={selectedObject.radius} min={0.1} step={0.1}
-                      onChange={(v) => updateSelected({ radius: Math.max(0.1, v) })} />
                   )}
-                  {selectedObject.kind === 'polygon' && (<>
-                    <NumberField label="Radius" value={selectedObject.radius} min={0.1} step={0.1}
-                      onChange={(v) => updateSelected({ radius: Math.max(0.1, v) })} />
-                    <NumberField label="Sides" value={selectedObject.sides} min={3} step={1}
-                      onChange={(v) => updateSelected({ sides: Math.max(3, Math.round(v)) })} />
-                  </>)}
-                </>)}
 
-                {/* 3D-specific fields */}
-                {selectedObject.space === '3d' && (<>
-                  {selectedObject.kind === 'cube' && (<>
-                    {(['xNeg','xPos','yNeg','yPos','zNeg','zPos'] as const).map((fk) => (
-                      <NumberField key={fk} label={CUBE_FACE_LABELS[fk]} value={selectedObject.facePulls[fk] ?? 0}
-                        step={0.05} onChange={(v) => updateCubeFacePull(fk, v, true)} />
-                    ))}
+                  {/* 2D-specific fields */}
+                  {selectedObject.space === '2d' && (<>
+                    {selectedObject.kind === 'line' && (<>
+                      <NumberField label="Length" value={selectedObject.length} min={0.15} step={0.1}
+                        onChange={(v) => updateSelected({ length: Math.max(0.15, v) })} />
+                      <NumberField label="Thickness" value={selectedObject.thickness} min={1} step={0.1}
+                        onChange={(v) => updateSelected({ thickness: Math.max(1, v) })} />
+                    </>)}
+                    {selectedObject.kind === 'rect' && (<>
+                      <NumberField label="Width" value={selectedObject.width} min={0.15} step={0.1}
+                        onChange={(v) => updateSelected({ width: Math.max(0.15, v) })} />
+                      <NumberField label="Height" value={selectedObject.height} min={0.15} step={0.1}
+                        onChange={(v) => updateSelected({ height: Math.max(0.15, v) })} />
+                    </>)}
+                    {selectedObject.kind === 'circle' && (
+                      <NumberField label="Radius" value={selectedObject.radius} min={0.1} step={0.1}
+                        onChange={(v) => updateSelected({ radius: Math.max(0.1, v) })} />
+                    )}
+                    {selectedObject.kind === 'polygon' && (<>
+                      <NumberField label="Radius" value={selectedObject.radius} min={0.1} step={0.1}
+                        onChange={(v) => updateSelected({ radius: Math.max(0.1, v) })} />
+                      <NumberField label="Sides" value={selectedObject.sides} min={3} step={1}
+                        onChange={(v) => updateSelected({ sides: Math.max(3, Math.round(v)) })} />
+                    </>)}
                   </>)}
-                  {(selectedObject.kind === 'sphere' || selectedObject.kind === 'cone') && (<>
-                    <NumberField label="Radius" value={selectedObject.radius} min={0.1} step={0.1}
-                      onChange={(v) => updateSelected({ radius: Math.max(0.1, v) })} />
-                    <NumberField label="Height" value={selectedObject.height} min={0.1} step={0.1}
-                      onChange={(v) => updateSelected({ height: Math.max(0.1, v) })} />
-                    <NumberField label="Segments" value={selectedObject.segments} min={3} step={1}
-                      onChange={(v) => updateSelected({ segments: Math.max(3, Math.round(v)) })} />
-                  </>)}
-                  {selectedObject.kind === 'torus' && (<>
-                    <NumberField label="Outer radius" value={selectedObject.outerRadius} min={0.15} step={0.1}
-                      onChange={(v) => updateSelected({ outerRadius: Math.max(0.15, v) })} />
-                    <NumberField label="Inner radius" value={selectedObject.innerRadius} min={0.05} step={0.05}
-                      onChange={(v) => updateSelected({ innerRadius: Math.max(0.05, v) })} />
-                    <NumberField label="Sides" value={selectedObject.sides} min={3} step={1}
-                      onChange={(v) => updateSelected({ sides: Math.max(3, Math.round(v)) })} />
-                    <NumberField label="Segments" value={selectedObject.segments} min={8} step={1}
-                      onChange={(v) => updateSelected({ segments: Math.max(8, Math.round(v)) })} />
-                  </>)}
-                  {selectedObject.kind === 'ground' && (<>
-                    <NumberField label="Width" value={selectedObject.width} min={0.5} step={0.5}
-                      onChange={(v) => updateSelected({ width: Math.max(0.5, v) })} />
-                    <NumberField label="Height" value={selectedObject.height} min={0.05} step={0.05}
-                      onChange={(v) => updateSelected({ height: Math.max(0.05, v) })} />
-                    <NumberField label="Depth" value={selectedObject.depth} min={0.5} step={0.5}
-                      onChange={(v) => updateSelected({ depth: Math.max(0.5, v) })} />
-                  </>)}
-                  {selectedObject.kind === 'prism' && (<>
-                    <NumberField label="Radius" value={selectedObject.radius} min={0.15} step={0.1}
-                      onChange={(v) => updateSelected({ radius: Math.max(0.15, v) })} />
-                    <NumberField label="Height" value={selectedObject.height} min={0.15} step={0.1}
-                      onChange={(v) => updateSelected({ height: Math.max(0.15, v) })} />
+
+                  {/* 3D-specific fields */}
+                  {selectedObject.space === '3d' && (<>
+                    {selectedObject.kind === 'cube' && (<>
+                      {(['xNeg', 'xPos', 'yNeg', 'yPos', 'zNeg', 'zPos'] as const).map((fk) => (
+                        <NumberField key={fk} label={CUBE_FACE_LABELS[fk]} value={selectedObject.facePulls[fk] ?? 0}
+                          step={0.05} onChange={(v) => updateCubeFacePull(fk, v, true)} />
+                      ))}
+                    </>)}
+                    {(selectedObject.kind === 'sphere' || selectedObject.kind === 'cone') && (<>
+                      <NumberField label="Radius" value={selectedObject.radius} min={0.1} step={0.1}
+                        onChange={(v) => updateSelected({ radius: Math.max(0.1, v) })} />
+                      <NumberField label="Height" value={selectedObject.height} min={0.1} step={0.1}
+                        onChange={(v) => updateSelected({ height: Math.max(0.1, v) })} />
+                      <NumberField label="Segments" value={selectedObject.segments} min={3} step={1}
+                        onChange={(v) => updateSelected({ segments: Math.max(3, Math.round(v)) })} />
+                    </>)}
+                    {selectedObject.kind === 'torus' && (<>
+                      <NumberField label="Outer radius" value={selectedObject.outerRadius} min={0.15} step={0.1}
+                        onChange={(v) => updateSelected({ outerRadius: Math.max(0.15, v) })} />
+                      <NumberField label="Inner radius" value={selectedObject.innerRadius} min={0.05} step={0.05}
+                        onChange={(v) => updateSelected({ innerRadius: Math.max(0.05, v) })} />
+                      <NumberField label="Sides" value={selectedObject.sides} min={3} step={1}
+                        onChange={(v) => updateSelected({ sides: Math.max(3, Math.round(v)) })} />
+                      <NumberField label="Segments" value={selectedObject.segments} min={8} step={1}
+                        onChange={(v) => updateSelected({ segments: Math.max(8, Math.round(v)) })} />
+                    </>)}
+                    {selectedObject.kind === 'ground' && (<>
+                      <NumberField label="Width" value={selectedObject.width} min={0.5} step={0.5}
+                        onChange={(v) => updateSelected({ width: Math.max(0.5, v) })} />
+                      <NumberField label="Height" value={selectedObject.height} min={0.05} step={0.05}
+                        onChange={(v) => updateSelected({ height: Math.max(0.05, v) })} />
+                      <NumberField label="Depth" value={selectedObject.depth} min={0.5} step={0.5}
+                        onChange={(v) => updateSelected({ depth: Math.max(0.5, v) })} />
+                    </>)}
+                    {selectedObject.kind === 'prism' && (<>
+                      <NumberField label="Radius" value={selectedObject.radius} min={0.15} step={0.1}
+                        onChange={(v) => updateSelected({ radius: Math.max(0.15, v) })} />
+                      <NumberField label="Height" value={selectedObject.height} min={0.15} step={0.1}
+                        onChange={(v) => updateSelected({ height: Math.max(0.15, v) })} />
+                      <div className="field">
+                        <span>Prism editing lives in the viewport gizmo</span>
+                      </div>
+                    </>)}
+
+                    {/* Holes */}
                     <div className="field">
-                      <span>Prism editing lives in the viewport gizmo</span>
+                      <span>Holes (Beta)</span>
+                      {selectedObject.holes.map((hole, hi) => (
+                        <div key={hole.id} className="be-holes-row">
+                          <span style={{ fontSize: '0.62rem', color: 'var(--be-text-dim)', minWidth: 18 }}>#{hi + 1}</span>
+                          <select value={hole.axis} onChange={(e) => {
+                            const nh = [...selectedObject.holes]; nh[hi] = { ...hole, axis: e.target.value as 'x' | 'y' | 'z' }
+                            updateSelected({ holes: nh })
+                          }}>
+                            <option value="x">X</option><option value="y">Y</option><option value="z">Z</option>
+                          </select>
+                          <input type="number" value={hole.radius} step={0.05} min={0.05} style={{ width: 50 }}
+                            onChange={(e) => {
+                              const nh = [...selectedObject.holes]; nh[hi] = { ...hole, radius: Math.max(0.05, Number(e.target.value)) }
+                              updateSelected({ holes: nh })
+                            }} />
+                          <button type="button" onClick={() =>
+                            updateSelected({ holes: selectedObject.holes.filter((_, i) => i !== hi) })
+                          }>✕</button>
+                        </div>
+                      ))}
+                      <button type="button" onClick={() =>
+                        updateSelected({
+                          holes: [...selectedObject.holes, {
+                            id: `hole_${Date.now()}`, position: [0, 0, 0] as [number, number, number], radius: 0.3, axis: 'y' as const
+                          }]
+                        })
+                      }>+ Add Hole</button>
                     </div>
                   </>)}
-
-                  {/* Holes */}
-                  <div className="field">
-                    <span>Holes (Beta)</span>
-                    {selectedObject.holes.map((hole, hi) => (
-                      <div key={hole.id} className="be-holes-row">
-                        <span style={{ fontSize:'0.62rem', color:'var(--be-text-dim)', minWidth:18 }}>#{hi+1}</span>
-                        <select value={hole.axis} onChange={(e) => {
-                          const nh = [...selectedObject.holes]; nh[hi]={...hole,axis:e.target.value as 'x'|'y'|'z'}
-                          updateSelected({ holes: nh })
-                        }}>
-                          <option value="x">X</option><option value="y">Y</option><option value="z">Z</option>
-                        </select>
-                        <input type="number" value={hole.radius} step={0.05} min={0.05} style={{width:50}}
-                          onChange={(e) => {
-                            const nh=[...selectedObject.holes]; nh[hi]={...hole,radius:Math.max(0.05,Number(e.target.value))}
-                            updateSelected({ holes: nh })
-                          }} />
-                        <button type="button" onClick={() =>
-                          updateSelected({ holes: selectedObject.holes.filter((_,i)=>i!==hi) })
-                        }>✕</button>
-                      </div>
-                    ))}
-                    <button type="button" onClick={() =>
-                      updateSelected({ holes: [...selectedObject.holes, {
-                        id:`hole_${Date.now()}`,position:[0,0,0] as [number,number,number],radius:0.3,axis:'y' as const
-                      }]})
-                    }>+ Add Hole</button>
-                  </div>
-                </>)}
-              </div>
-            ) : (
-              <div className="be-inspector-empty">
-                <div className="be-inspector-empty-icon">⬜</div>
-                <p>Select an object in the viewport<br/>or add one from the left panel</p>
-              </div>
-            )}
+                </div>
+              ) : (
+                <div className="be-inspector-empty">
+                  <div className="be-inspector-empty-icon">⬜</div>
+                  <p>Select an object in the viewport<br />or add one from the left panel</p>
+                </div>
+              )}
             </CollapsibleSection>
 
             {/* GLUT EXPORT / IMPORT */}
@@ -1957,8 +2003,8 @@ function App() {
                   </button>
                   <div className="be-code-section">
                     <div className="be-code-scope">
-                      <button type="button" className={exportScope==='scene' ? 'toggle-active':''} onClick={() => setExportScope('scene')}>Full scene</button>
-                      <button type="button" className={exportScope==='selection' ? 'toggle-active':''} onClick={() => setExportScope('selection')}>Selection</button>
+                      <button type="button" className={exportScope === 'scene' ? 'toggle-active' : ''} onClick={() => setExportScope('scene')}>Full scene</button>
+                      <button type="button" className={exportScope === 'selection' ? 'toggle-active' : ''} onClick={() => setExportScope('selection')}>Selection</button>
                     </div>
                     <pre className="be-code-block">{exportedCode}</pre>
                   </div>

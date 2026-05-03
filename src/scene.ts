@@ -448,11 +448,6 @@ export function createSceneObject(kind: PrimitiveKind, index: number): SceneObje
         glassOpacity: 0.35,
         // glass color stored in object.color
         color: [0.72, 0.82, 0.98] as [number, number, number],
-        position: [
-          object.position[0],
-          object.position[1] + 0.5,
-          object.position[2],
-        ] as [number, number, number],
       }
   }
 }
