@@ -170,6 +170,30 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
       }
       break;
     }
+    case 'cylinder': {
+      const r = object.radius;
+      const h = object.height;
+      const segs = object.segments;
+      lines.push(`  // Cylinder (centered, using GLU)`);
+      lines.push(`  glPushMatrix();`);
+      lines.push(`  glRotatef(-90.0f, 1.0f, 0.0f, 0.0f); // Align Z with Y`);
+      lines.push(`  glTranslatef(0.0f, 0.0f, ${toF(-h/2)}); // Center along Z`);
+      lines.push(`  GLUquadric* quad = gluNewQuadric();`);
+      lines.push(`  gluCylinder(quad, ${toF(r)}, ${toF(r)}, ${toF(h)}, ${segs}, 1);`);
+      lines.push(`  // Bottom Cap`);
+      lines.push(`  glPushMatrix();`);
+      lines.push(`  glRotatef(180.0f, 1.0f, 0.0f, 0.0f);`);
+      lines.push(`  gluDisk(quad, 0.0, ${toF(r)}, ${segs}, 1);`);
+      lines.push(`  glPopMatrix();`);
+      lines.push(`  // Top Cap`);
+      lines.push(`  glPushMatrix();`);
+      lines.push(`  glTranslatef(0.0f, 0.0f, ${toF(h)});`);
+      lines.push(`  gluDisk(quad, 0.0, ${toF(r)}, ${segs}, 1);`);
+      lines.push(`  glPopMatrix();`);
+      lines.push(`  gluDeleteQuadric(quad);`);
+      lines.push(`  glPopMatrix();`);
+      break;
+    }
     default:
       lines.push(`  glutSolidCube(1.0);`)
   }
@@ -260,7 +284,7 @@ export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
 
   // Init function
   lines.push('void init() {')
-  lines.push('  glClearColor(0.12f, 0.12f, 0.15f, 1.0f);')
+  lines.push('  glClearColor(0.53f, 0.81f, 0.92f, 1.0f);')
   if (is3D) {
     lines.push('  glEnable(GL_DEPTH_TEST);')
     lines.push('  glEnable(GL_LIGHTING);')

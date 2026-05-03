@@ -87,13 +87,16 @@ export function deleteFace(mesh: PrismMesh, faceId: string): PrismMesh {
 }
 
 function computeNormal(verts: Vertex[]): Vertex {
-  if (verts.length < 3) return { x: 0, y: 1, z: 0 };
-  const a = verts[0], b = verts[1], c = verts[2];
-  const ab = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
-  const ac = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
-  let nx = ab.y * ac.z - ab.z * ac.y;
-  let ny = ab.z * ac.x - ab.x * ac.z;
-  let nz = ab.x * ac.y - ab.y * ac.x;
+  // Use Newell's method: accumulate cross products across all edges.
+  let nx = 0, ny = 0, nz = 0;
+  const n = verts.length;
+  for (let i = 0; i < n; i++) {
+    const cur = verts[i];
+    const nxt = verts[(i + 1) % n];
+    nx += (cur.y - nxt.y) * (cur.z + nxt.z);
+    ny += (cur.z - nxt.z) * (cur.x + nxt.x);
+    nz += (cur.x - nxt.x) * (cur.y + nxt.y);
+  }
   const len = Math.hypot(nx, ny, nz);
   if (len !== 0) { nx /= len; ny /= len; nz /= len; }
   return { x: nx, y: ny, z: nz };

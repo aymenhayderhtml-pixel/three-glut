@@ -1127,7 +1127,7 @@ function App() {
 
   const PRIM_ICONS: Partial<Record<PrimitiveKind, string>> = {
     cube: '■', sphere: '●', cone: '▲', torus: '◎', teapot: '☕', ground: '▬',
-    prism: '△', line: '╱', rect: '▭', circle: '○', polygon: '⬡',
+    prism: '△', line: '╱', rect: '▭', circle: '○', polygon: '⬡', cylinder: '⬭',
   }
 
   const MODES: { id: ThreeDEditMode; label: string }[] = [
@@ -1172,10 +1172,10 @@ function App() {
               key={t.id}
               type="button"
               className={`be-tool${t.id === 'select' && effectiveThreeDEditMode === 'object' && !transformMode ? ' active' :
-                  t.id === 'move' && effectiveThreeDEditMode === 'object' && transformMode === 'translate' ? ' active' :
-                    t.id === 'rotate' && effectiveThreeDEditMode === 'object' && transformMode === 'rotate' ? ' active' :
-                      t.id === 'scale' && effectiveThreeDEditMode === 'object' && transformMode === 'scale' ? ' active' :
-                        t.id === 'measure' && effectiveThreeDEditMode === 'measure' ? ' active' : ''
+                t.id === 'move' && effectiveThreeDEditMode === 'object' && transformMode === 'translate' ? ' active' :
+                  t.id === 'rotate' && effectiveThreeDEditMode === 'object' && transformMode === 'rotate' ? ' active' :
+                    t.id === 'scale' && effectiveThreeDEditMode === 'object' && transformMode === 'scale' ? ' active' :
+                      t.id === 'measure' && effectiveThreeDEditMode === 'measure' ? ' active' : ''
                 }`}
               onClick={() => {
                 if (t.id === 'select') { updateThreeDEditMode('object'); setTransformMode(null) }
@@ -1907,6 +1907,14 @@ function App() {
                       <div className="field">
                         <span>Prism editing lives in the viewport gizmo</span>
                       </div>
+                    </>)}
+                    {selectedObject.kind === 'cylinder' && (<>
+                      <NumberField label="Radius" value={selectedObject.radius} min={0.1} step={0.1}
+                        onChange={(v) => updateSelected({ radius: Math.max(0.1, v) })} />
+                      <NumberField label="Height" value={selectedObject.height} min={0.1} step={0.1}
+                        onChange={(v) => updateSelected({ height: Math.max(0.1, v) })} />
+                      <NumberField label="Segments" value={selectedObject.segments} min={3} step={1}
+                        onChange={(v) => updateSelected({ segments: Math.max(3, Math.round(v)) })} />
                     </>)}
 
                     {/* Holes */}

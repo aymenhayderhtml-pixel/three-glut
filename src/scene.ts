@@ -14,6 +14,7 @@ export type PrimitiveKind =
   | 'ground'
   | 'prism'
   | 'window'
+  | 'cylinder'
 
 export type TwoDDrawKind = 'line' | 'rect' | 'circle'
 
@@ -105,7 +106,7 @@ export const SPACE_LABELS: Record<Space, string> = {
 
 export const SPACE_KINDS = {
   '2d': ['line', 'rect', 'circle', 'polygon'] as const,
-  '3d': ['cube', 'sphere', 'cone', 'torus', 'teapot', 'ground', 'prism', 'window'] as const,
+  '3d': ['cube', 'sphere', 'cone', 'torus', 'teapot', 'ground', 'prism', 'window', 'cylinder'] as const,
 } satisfies Record<Space, readonly PrimitiveKind[]>
 
 export const KIND_LABELS: Record<PrimitiveKind, string> = {
@@ -121,6 +122,7 @@ export const KIND_LABELS: Record<PrimitiveKind, string> = {
   ground: 'Ground',
   prism: 'Prism',
   window: 'Window',
+  cylinder: 'Cylinder',
 }
 
 export const CUBE_FACE_KEYS: CubeFaceKey[] = [
@@ -199,6 +201,7 @@ const DEFAULT_COLORS: Record<PrimitiveKind, [number, number, number]> = {
   ground: [0.45, 0.42, 0.38],
   prism: [0.85, 0.55, 0.95],
   window: [0.72, 0.82, 0.98],
+  cylinder: [0.42, 0.84, 0.58],
 }
 
 const VALID_KINDS = new Set<PrimitiveKind>([
@@ -214,6 +217,7 @@ const VALID_KINDS = new Set<PrimitiveKind>([
   'ground',
   'prism',
   'window',
+  'cylinder',
 ])
 
 const STORAGE_KEY = 'three-glut-scene-document'
@@ -304,15 +308,15 @@ function baseSceneObject(kind: PrimitiveKind, index: number): SceneObject {
     space: is2D ? '2d' : '3d',
     position: is2D
       ? ([round(index * 1.5 - 1.5), round(index % 2 === 0 ? 0.4 : -0.2), 0] as [
-          number,
-          number,
-          number,
-        ])
+        number,
+        number,
+        number,
+      ])
       : ([round(index * 1.4 - 1.4), round(index % 2 === 0 ? 0.3 : -0.35), round(index * 0.35)] as [
-          number,
-          number,
-          number,
-        ]),
+        number,
+        number,
+        number,
+      ]),
     rotation: is2D
       ? ([0, 0, round(index * 10)] as [number, number, number])
       : ([0, 0, 0] as [number, number, number]),
@@ -449,6 +453,13 @@ export function createSceneObject(kind: PrimitiveKind, index: number): SceneObje
         // glass color stored in object.color
         color: [0.72, 0.82, 0.98] as [number, number, number],
       }
+    case 'cylinder':
+      return {
+        ...object,
+        radius: 0.8,
+        height: 2.0,
+        segments: 32,
+      }
   }
 }
 
@@ -554,15 +565,15 @@ function hydrateSceneObject(
       ? rawRecord.faceColors as Partial<Record<string, [number, number, number]>>
       : {},
     holes: Array.isArray(rawRecord.holes) ? rawRecord.holes as HoleData[] : [],
-    prismMesh: rawRecord.prismMesh && typeof rawRecord.prismMesh === 'object' 
-      ? structuredClone(rawRecord.prismMesh) as PrismMesh 
+    prismMesh: rawRecord.prismMesh && typeof rawRecord.prismMesh === 'object'
+      ? structuredClone(rawRecord.prismMesh) as PrismMesh
       : undefined,
     prismParams: rawRecord.prismParams && typeof rawRecord.prismParams === 'object'
       ? {
-          sides: isFiniteNumber((rawRecord.prismParams as any).sides) ? Math.max(3, Math.round((rawRecord.prismParams as any).sides)) : 3,
-          radius: isFiniteNumber((rawRecord.prismParams as any).radius) ? Math.max(0.1, (rawRecord.prismParams as any).radius) : 0.9,
-          height: isFiniteNumber((rawRecord.prismParams as any).height) ? Math.max(0.1, (rawRecord.prismParams as any).height) : 1.6,
-        }
+        sides: isFiniteNumber((rawRecord.prismParams as any).sides) ? Math.max(3, Math.round((rawRecord.prismParams as any).sides)) : 3,
+        radius: isFiniteNumber((rawRecord.prismParams as any).radius) ? Math.max(0.1, (rawRecord.prismParams as any).radius) : 0.9,
+        height: isFiniteNumber((rawRecord.prismParams as any).height) ? Math.max(0.1, (rawRecord.prismParams as any).height) : 1.6,
+      }
       : undefined,
     // Window-specific properties
     borderThickness: isFiniteNumber(rawRecord.borderThickness) ? Math.max(0.02, rawRecord.borderThickness) : base.borderThickness,
@@ -730,6 +741,8 @@ export function getObjectDimensions(object: SceneObject): [number, number, numbe
       return [round(object.radius * 2), round(object.radius * 2), 0]
     case 'window':
       return [round(object.width), round(object.height), 0]
+    case 'cylinder':
+      return [round(object.radius * 2), round(object.height), round(object.radius * 2)]
     default:
       return [0, 0, 0]
   }
