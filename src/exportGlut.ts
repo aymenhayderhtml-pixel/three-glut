@@ -178,7 +178,6 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
       lines.push(`  glPushMatrix();`);
       lines.push(`  glRotatef(-90.0f, 1.0f, 0.0f, 0.0f); // Align Z with Y`);
       lines.push(`  glTranslatef(0.0f, 0.0f, ${toF(-h / 2)}); // Center along Z`);
-      lines.push(`  GLUquadric* quad = gluNewQuadric();`);
       lines.push(`  gluCylinder(quad, ${toF(r)}, ${toF(r)}, ${toF(h)}, ${segs}, 1);`);
       lines.push(`  // Bottom Cap`);
       lines.push(`  glPushMatrix();`);
@@ -190,7 +189,6 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
       lines.push(`  glTranslatef(0.0f, 0.0f, ${toF(h)});`);
       lines.push(`  gluDisk(quad, 0.0, ${toF(r)}, ${segs}, 1);`);
       lines.push(`  glPopMatrix();`);
-      lines.push(`  gluDeleteQuadric(quad);`);
       lines.push(`  glPopMatrix();`);
       break;
     }
@@ -347,6 +345,12 @@ export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
   }
   lines.push('')
 
+  const hasCylinder = objects.some(o => o.kind === 'cylinder')
+  if (is3D && hasCylinder) {
+    lines.push('  GLUquadric* quad = gluNewQuadric();')
+    lines.push('')
+  }
+
   if (objects.length === 0) {
     lines.push('  // No objects in scene.')
   }
@@ -385,6 +389,11 @@ export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
     lines.push(`  glPopMatrix();`)
     lines.push('')
   })
+
+  if (is3D && hasCylinder) {
+    lines.push('  gluDeleteQuadric(quad);')
+    lines.push('')
+  }
 
   lines.push('  glutSwapBuffers();')
   lines.push('}')

@@ -36,7 +36,7 @@
   background: var(--be-surface);
   border-bottom: 1px solid var(--be-border);
   z-index: 30;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Brand */

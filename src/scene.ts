@@ -658,7 +658,18 @@ export function loadStoredSceneDocument() {
     return null
   }
 
-  const raw = window.localStorage.getItem(STORAGE_KEY)
+  // Priority: 1. Active project 2. Default storage key
+  const activeProject = window.localStorage.getItem('three-glut-active-project')
+  let raw = null
+
+  if (activeProject) {
+    raw = window.localStorage.getItem(`three-glut-project:${activeProject}`)
+  }
+
+  if (!raw) {
+    raw = window.localStorage.getItem(STORAGE_KEY)
+  }
+
   if (!raw) {
     return null
   }
@@ -675,7 +686,14 @@ export function storeSceneDocument(document: SceneDocument) {
     return
   }
 
-  window.localStorage.setItem(STORAGE_KEY, serializeSceneDocument(document))
+  const raw = serializeSceneDocument(document)
+  window.localStorage.setItem(STORAGE_KEY, raw)
+
+  // Also sync to active project if one exists
+  const activeProject = window.localStorage.getItem('three-glut-active-project')
+  if (activeProject) {
+    window.localStorage.setItem(`three-glut-project:${activeProject}`, raw)
+  }
 }
 
 export function formatColor([r, g, b]: [number, number, number]) {

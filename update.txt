@@ -30,7 +30,18 @@ Implemented several major features and architectural improvements:
    - Refined WASD/Arrow key navigation to maintain strict world-axis alignment.
    - Added smooth damping to camera transitions.
 
-7. **Codebase Maintenance:**
+7. **Project Management & File Menu (src/App.tsx):**
+   - Implemented a persistent "File" menu in the top bar.
+   - Added project-based saving to `localStorage` (New, Save, Save As).
+   - Enabled "Recent Projects" quick-loading.
+   - Dynamic project naming: project names are tracked and applied to JSON exports.
+   - Project-Aware Storage: Updated `scene.ts` to prioritize the active project name during load/save cycles.
+   - Multi-Tab Workflow: Updated "New Project" to open in a fresh tab, allowing parallel editing of different projects.
+   - Export UX: Improved "Generate C Code" button with instant "Copied!" feedback and automatic clipboard sync.
+   - GLUT Export Fix: Resolved multiple `GLUquadric` declarations in the exported C++ code by reusing a single quadric object for all cylinders.
+   - Fixed UI clipping: Updated `.be-topbar` overflow and used `position: fixed` for the File Menu to escape parent clipping.
+
+8. **Codebase Maintenance:**
    - Updated `codebase_dump.txt` and `codebase_dump_utf8.txt` with the latest source state.
    - Cleaned up redundant command handlers and stabilized state management hooks.
 

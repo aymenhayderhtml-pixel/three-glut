@@ -256,6 +256,10 @@ function App() {
     return [null, null, null, null, null]
   })
   const [pullDialog, setPullDialog] = useState<{ faceKey: CubeFaceKey; label: string } | null>(null)
+  const [projectName, setProjectName] = useState<string>(() => {
+    return localStorage.getItem('three-glut-active-project') ?? 'Untitled'
+  })
+  const [fileMenuOpen, setFileMenuOpen] = useState(false)
 
 
   const [multiSelection, setMultiSelection] = useState<Record<Space, string[]>>({ '2d': [], '3d': [] })
@@ -409,7 +413,7 @@ function App() {
     }))
   }
 
-  const selectObject = (id: string | null) => {
+  const selectObject = useCallback((id: string | null) => {
     setSelection((current) => ({
       ...current,
       [activeSpace]: id,
@@ -417,7 +421,7 @@ function App() {
     // Normal click clears multi-selection
     setMultiSelection((cur) => ({ ...cur, [activeSpace]: id ? [id] : [] }))
     setLastMeasuredId(null)
-  }
+  }, [activeSpace])
 
   const shiftSelectObject = (id: string) => {
     setMultiSelection((cur) => {
@@ -779,6 +783,7 @@ function App() {
       redo,
       selectedObject,
       undo,
+      selectObject,
     ],
   )
 
@@ -848,7 +853,6 @@ function App() {
 
     try {
       await navigator.clipboard.writeText(exportedCode)
-      setCopyStatus('Copied export code to clipboard')
     } catch {
       setCopyStatus('Clipboard access is blocked in this browser')
     }
@@ -904,6 +908,9 @@ function App() {
       setAxisLock(null)
       setSelectedCubeFace(null)
       setSelectedCubeEdge(null)
+      const fileName = file.name.replace(/\.json$/i, '')
+      setProjectName(fileName)
+      localStorage.setItem('three-glut-active-project', fileName)
       setCopyStatus('Imported scene JSON')
     } catch (error) {
       const message =
@@ -928,6 +935,99 @@ function App() {
     setTransformMode(null)
     setAxisLock(null)
     setCopyStatus('Reset to starter scene')
+  }
+
+  const getAllProjects = (): string[] => {
+    const keys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith('three-glut-project:')) {
+        keys.push(key.replace('three-glut-project:', ''))
+      }
+    }
+    return keys.sort()
+  }
+
+  const saveProjectToStorage = (name: string) => {
+    const doc = createSceneDocument(activeSpace, scenes)
+    localStorage.setItem(`three-glut-project:${name}`, serializeSceneDocument(doc))
+    localStorage.setItem('three-glut-active-project', name)
+  }
+
+  const loadProjectFromStorage = (name: string) => {
+    const raw = localStorage.getItem(`three-glut-project:${name}`)
+    if (!raw) return
+    try {
+      const doc = parseSceneDocument(raw)
+      commitSceneChange(() => {
+        setActiveSpace(doc.activeSpace)
+        setScenes(doc.scenes)
+        setSelection(getSelectionFromScenes(doc.scenes))
+      })
+      setProjectName(name)
+      localStorage.setItem('three-glut-active-project', name)
+      setActive2DTool('select')
+      setThreeDEditMode('object')
+      setGrabMode(false)
+      setTransformMode(null)
+      setAxisLock(null)
+      setSelectedCubeFace(null)
+      setSelectedCubeEdge(null)
+      setCopyStatus(`Opened "${name}"`)
+    } catch {
+      setCopyStatus(`Failed to load "${name}"`)
+    }
+  }
+
+  const handleNewProject = () => {
+    const name = window.prompt('Project name:', 'Untitled')
+    if (!name?.trim()) return
+    const trimmed = name.trim()
+
+    // Create and save the new empty project to localStorage first
+    const emptyDoc = createSceneDocument('2d', initialScenes)
+    localStorage.setItem(`three-glut-project:${trimmed}`, serializeSceneDocument(emptyDoc))
+    localStorage.setItem('three-glut-active-project', trimmed)
+
+    // Open in new tab — the new tab will read the active project on boot
+    window.open(window.location.href, '_blank')
+
+    setCopyStatus(`Created "${trimmed}" (opened in new tab)`)
+    setFileMenuOpen(false)
+  }
+
+  const handleSave = () => {
+    saveProjectToStorage(projectName)
+    setCopyStatus(`Saved "${projectName}"`)
+    setFileMenuOpen(false)
+  }
+
+  const handleSaveAs = () => {
+    const name = window.prompt('Save as:', projectName)
+    if (!name?.trim()) return
+    const trimmed = name.trim()
+    setProjectName(trimmed)
+    saveProjectToStorage(trimmed)
+    setCopyStatus(`Saved as "${trimmed}"`)
+    setFileMenuOpen(false)
+  }
+
+  const handleDownload = () => {
+    const doc = createSceneDocument(activeSpace, scenes)
+    const blob = new Blob([serializeSceneDocument(doc)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${projectName}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    setCopyStatus(`Downloaded "${projectName}.json"`)
+    setFileMenuOpen(false)
+  }
+
+  const handleOpenRecent = (name: string) => {
+    loadProjectFromStorage(name)
+    setFileMenuOpen(false)
   }
 
   const handleContextMenuAction = (action: ContextMenuAction) => {
@@ -1149,9 +1249,121 @@ function App() {
     }}>
       {/* ── TOPBAR ── */}
       <header className="be-topbar">
-        <div className="be-brand">
+        <div className="be-brand" style={{ position: 'relative' }}>
           <span className="be-brand-icon">B</span>
           <span className="be-brand-name">BuildEditor</span>
+          <button
+            type="button"
+            style={{
+              marginLeft: 8,
+              background: fileMenuOpen ? 'var(--be-surface-3)' : 'transparent',
+              border: 'none',
+              borderRadius: 4,
+              color: 'var(--be-text)',
+              padding: '2px 8px',
+              fontSize: '0.72rem',
+              cursor: 'pointer',
+              height: 24,
+            }}
+            onClick={() => setFileMenuOpen(v => !v)}
+          >
+            File ▾
+          </button>
+
+          {fileMenuOpen && (
+            <>
+              <div
+                style={{ position: 'fixed', inset: 0, zIndex: 99 }}
+                onClick={() => setFileMenuOpen(false)}
+              />
+              <div style={{
+                position: 'fixed',
+                top: 42,
+                left: 0,
+                zIndex: 100,
+                background: 'var(--be-surface)',
+                border: '1px solid var(--be-border)',
+                borderRadius: 6,
+                minWidth: 200,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                padding: '4px 0',
+              }}>
+                {/* Project name display */}
+                <div style={{
+                  padding: '6px 14px 8px',
+                  borderBottom: '1px solid var(--be-border)',
+                  marginBottom: 4,
+                }}>
+                  <div style={{ fontSize: '0.58rem', color: 'var(--be-text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Current project</div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--be-text-strong)', marginTop: 2 }}>{projectName}</div>
+                </div>
+
+                {[
+                  { label: '＋ New', action: handleNewProject },
+                  { label: '📂 Open', action: () => { fileInputRef.current?.click(); setFileMenuOpen(false) } },
+                  { label: '💾 Save', action: handleSave },
+                  { label: '📝 Save As', action: handleSaveAs },
+                  { label: '⬇ Download JSON', action: handleDownload },
+                ].map(({ label, action }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={action}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '6px 14px',
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--be-text)',
+                      fontSize: '0.74rem',
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--be-surface-3)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    {label}
+                  </button>
+                ))}
+
+                {/* Recent */}
+                <div style={{ borderTop: '1px solid var(--be-border)', marginTop: 4, paddingTop: 4 }}>
+                  <div style={{ padding: '4px 14px', fontSize: '0.58rem', color: 'var(--be-text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Recent
+                  </div>
+                  {getAllProjects().length === 0 ? (
+                    <div style={{ padding: '4px 14px', fontSize: '0.7rem', color: 'var(--be-text-dim)', fontStyle: 'italic' }}>
+                      No saved projects
+                    </div>
+                  ) : (
+                    getAllProjects().map(name => (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => handleOpenRecent(name)}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '5px 14px',
+                          background: name === projectName ? 'var(--be-accent-muted)' : 'transparent',
+                          border: 'none',
+                          color: name === projectName ? 'var(--be-accent-text)' : 'var(--be-text-label)',
+                          fontSize: '0.7rem',
+                          cursor: 'pointer',
+                        }}
+                        onMouseEnter={e => { if (name !== projectName) e.currentTarget.style.background = 'var(--be-surface-3)' }}
+                        onMouseLeave={e => { if (name !== projectName) e.currentTarget.style.background = 'transparent' }}
+                      >
+                        {name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Tool strip */}
@@ -2000,8 +2212,12 @@ function App() {
                     <span className="be-stat">📄 {activeScene.length} objects</span>
                     <span className="be-stat">🟡 Colors preserved</span>
                   </div>
-                  <button type="button" className="be-btn-primary" onClick={copyCode} disabled={!canExportCode}>
-                    ⊕ Generate C Code
+                  <button type="button" className="be-btn-primary" onClick={async () => {
+                    await copyCode()
+                    setCopyStatus('Copied!')
+                    setTimeout(() => setCopyStatus('Ready to export'), 2000)
+                  }} disabled={!canExportCode}>
+                    ⊕ Generate C Code & Copy
                   </button>
                   <button type="button" className="be-btn-secondary" onClick={downloadCode} disabled={!canExportCode}>
                     ↓ Download .c
