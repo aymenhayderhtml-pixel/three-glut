@@ -768,6 +768,7 @@ function App() {
       redo,
       duplicateObjectById,
       deleteObjectById,
+      selectObject,
     }),
     [
       activeSpace,
@@ -1008,12 +1009,14 @@ function App() {
         if (transactionRef.current) {
           event.preventDefault()
           shortcuts.cancelSceneTransaction()
+          return
         }
 
         if (!isEditableTarget(event.target)) {
           setGrabMode(false)
           setTransformMode(null)
           setAxisLock(null)
+          shortcuts.selectObject(null)
         }
         return
       }
