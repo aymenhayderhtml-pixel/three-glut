@@ -1,4 +1,5 @@
 
+
 --- FILE: README.md ---
 
 # Three GLUT
@@ -48,8 +49,6 @@ npm run lint
 - The editor is designed to work on desktop and smaller screens.
 
 
-
-
 --- FILE: eslint.config.js ---
 
 import js from '@eslint/js'
@@ -79,8 +78,6 @@ export default tseslint.config(
 )
 
 
-
-
 --- FILE: index.html ---
 
 <!doctype html>
@@ -99,8 +96,6 @@ export default tseslint.config(
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
-
 
 
 --- FILE: package.json ---
@@ -143,8 +138,6 @@ export default tseslint.config(
 }
 
 
-
-
 --- FILE: tsconfig.app.json ---
 
 {
@@ -172,8 +165,6 @@ export default tseslint.config(
 }
 
 
-
-
 --- FILE: tsconfig.json ---
 
 {
@@ -183,8 +174,6 @@ export default tseslint.config(
     { "path": "./tsconfig.node.json" }
   ]
 }
-
-
 
 
 --- FILE: tsconfig.node.json ---
@@ -205,8 +194,6 @@ export default tseslint.config(
 }
 
 
-
-
 --- FILE: vite.config.ts ---
 
 import { defineConfig } from 'vite'
@@ -217,9 +204,7 @@ export default defineConfig({
 })
 
 
-
-
---- FILE: .\src\App.css ---
+--- FILE: src\App.css ---
 
 /* ========================================================================
    THREE GLUT — BuildEditor-Style UI
@@ -1327,9 +1312,7 @@ button:disabled { cursor: not-allowed; opacity: 0.32; }
 }
 
 
-
-
---- FILE: .\src\App.tsx ---
+--- FILE: src\App.tsx ---
 
 import {
   useEffect,
@@ -2460,7 +2443,7 @@ function App() {
 
   const PRIM_ICONS: Partial<Record<PrimitiveKind, string>> = {
     cube: '■', sphere: '●', cone: '▲', torus: '◎', teapot: '☕', ground: '▬',
-    prism: '△', line: '╱', rect: '▭', circle: '○', polygon: '⬡',
+    prism: '△', line: '╱', rect: '▭', circle: '○', polygon: '⬡', cylinder: '⬭',
   }
 
   const MODES: { id: ThreeDEditMode; label: string }[] = [
@@ -2505,10 +2488,10 @@ function App() {
               key={t.id}
               type="button"
               className={`be-tool${t.id === 'select' && effectiveThreeDEditMode === 'object' && !transformMode ? ' active' :
-                  t.id === 'move' && effectiveThreeDEditMode === 'object' && transformMode === 'translate' ? ' active' :
-                    t.id === 'rotate' && effectiveThreeDEditMode === 'object' && transformMode === 'rotate' ? ' active' :
-                      t.id === 'scale' && effectiveThreeDEditMode === 'object' && transformMode === 'scale' ? ' active' :
-                        t.id === 'measure' && effectiveThreeDEditMode === 'measure' ? ' active' : ''
+                t.id === 'move' && effectiveThreeDEditMode === 'object' && transformMode === 'translate' ? ' active' :
+                  t.id === 'rotate' && effectiveThreeDEditMode === 'object' && transformMode === 'rotate' ? ' active' :
+                    t.id === 'scale' && effectiveThreeDEditMode === 'object' && transformMode === 'scale' ? ' active' :
+                      t.id === 'measure' && effectiveThreeDEditMode === 'measure' ? ' active' : ''
                 }`}
               onClick={() => {
                 if (t.id === 'select') { updateThreeDEditMode('object'); setTransformMode(null) }
@@ -3241,6 +3224,14 @@ function App() {
                         <span>Prism editing lives in the viewport gizmo</span>
                       </div>
                     </>)}
+                    {selectedObject.kind === 'cylinder' && (<>
+                      <NumberField label="Radius" value={selectedObject.radius} min={0.1} step={0.1}
+                        onChange={(v) => updateSelected({ radius: Math.max(0.1, v) })} />
+                      <NumberField label="Height" value={selectedObject.height} min={0.1} step={0.1}
+                        onChange={(v) => updateSelected({ height: Math.max(0.1, v) })} />
+                      <NumberField label="Segments" value={selectedObject.segments} min={3} step={1}
+                        onChange={(v) => updateSelected({ segments: Math.max(3, Math.round(v)) })} />
+                    </>)}
 
                     {/* Holes */}
                     <div className="field">
@@ -3549,9 +3540,7 @@ function App() {
 export default App
 
 
-
-
---- FILE: .\src\exportGlut.ts ---
+--- FILE: src\exportGlut.ts ---
 
 import { computeCubeExtents, type SceneObject, type Space } from './scene'
 
@@ -3645,16 +3634,16 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
       lines.push(`  glBegin(GL_QUADS);`)
       // Top border
       lines.push(`  // Top border`)
-      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-W/2)},${toF(H/2-B)},0); glVertex3f(${toF(W/2)},${toF(H/2-B)},0); glVertex3f(${toF(W/2)},${toF(H/2)},0); glVertex3f(${toF(-W/2)},${toF(H/2)},0);`)
+      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-W / 2)},${toF(H / 2 - B)},0); glVertex3f(${toF(W / 2)},${toF(H / 2 - B)},0); glVertex3f(${toF(W / 2)},${toF(H / 2)},0); glVertex3f(${toF(-W / 2)},${toF(H / 2)},0);`)
       // Bottom border
       lines.push(`  // Bottom border`)
-      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-W/2)},${toF(-H/2)},0); glVertex3f(${toF(W/2)},${toF(-H/2)},0); glVertex3f(${toF(W/2)},${toF(-H/2+B)},0); glVertex3f(${toF(-W/2)},${toF(-H/2+B)},0);`)
+      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-W / 2)},${toF(-H / 2)},0); glVertex3f(${toF(W / 2)},${toF(-H / 2)},0); glVertex3f(${toF(W / 2)},${toF(-H / 2 + B)},0); glVertex3f(${toF(-W / 2)},${toF(-H / 2 + B)},0);`)
       // Left border
       lines.push(`  // Left border`)
-      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-W/2)},${toF(-glassH/2)},0); glVertex3f(${toF(-W/2+B)},${toF(-glassH/2)},0); glVertex3f(${toF(-W/2+B)},${toF(glassH/2)},0); glVertex3f(${toF(-W/2)},${toF(glassH/2)},0);`)
+      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-W / 2)},${toF(-glassH / 2)},0); glVertex3f(${toF(-W / 2 + B)},${toF(-glassH / 2)},0); glVertex3f(${toF(-W / 2 + B)},${toF(glassH / 2)},0); glVertex3f(${toF(-W / 2)},${toF(glassH / 2)},0);`)
       // Right border
       lines.push(`  // Right border`)
-      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(W/2-B)},${toF(-glassH/2)},0); glVertex3f(${toF(W/2)},${toF(-glassH/2)},0); glVertex3f(${toF(W/2)},${toF(glassH/2)},0); glVertex3f(${toF(W/2-B)},${toF(glassH/2)},0);`)
+      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(W / 2 - B)},${toF(-glassH / 2)},0); glVertex3f(${toF(W / 2)},${toF(-glassH / 2)},0); glVertex3f(${toF(W / 2)},${toF(glassH / 2)},0); glVertex3f(${toF(W / 2 - B)},${toF(glassH / 2)},0);`)
       lines.push(`  glEnd();`)
       // Glass (transparent quad)
       lines.push(`  // Glass pane (transparent)`)
@@ -3662,7 +3651,7 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
       lines.push(`  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);`)
       lines.push(`  glColor4f(${toF(gc[0])}, ${toF(gc[1])}, ${toF(gc[2])}, ${toF(opacity)});`)
       lines.push(`  glBegin(GL_QUADS);`)
-      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-glassW/2)},${toF(-glassH/2)},0); glVertex3f(${toF(glassW/2)},${toF(-glassH/2)},0); glVertex3f(${toF(glassW/2)},${toF(glassH/2)},0); glVertex3f(${toF(-glassW/2)},${toF(glassH/2)},0);`)
+      lines.push(`  glNormal3f(0,0,1); glVertex3f(${toF(-glassW / 2)},${toF(-glassH / 2)},0); glVertex3f(${toF(glassW / 2)},${toF(-glassH / 2)},0); glVertex3f(${toF(glassW / 2)},${toF(glassH / 2)},0); glVertex3f(${toF(-glassW / 2)},${toF(glassH / 2)},0);`)
       lines.push(`  glEnd();`)
       lines.push(`  glDisable(GL_BLEND);`)
       break
@@ -3702,7 +3691,7 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
         lines.push(`  glBegin(GL_TRIANGLE_FAN);`);
         lines.push(`  glNormal3f(0.0, -1.0, 0.0);`);
         for (let i = pts.length - 1; i >= 0; i--) lines.push(`  glVertex3f(${toF(pts[i][0])}, ${toF(-hh)}, ${toF(pts[i][1])});`);
-        lines.push(`  glVertex3f(${toF(pts[pts.length-1][0])}, ${toF(-hh)}, ${toF(pts[pts.length-1][1])});`);
+        lines.push(`  glVertex3f(${toF(pts[pts.length - 1][0])}, ${toF(-hh)}, ${toF(pts[pts.length - 1][1])});`);
         lines.push(`  glEnd();`);
         // Sides
         lines.push(`  glBegin(GL_QUADS);`);
@@ -3723,6 +3712,30 @@ function emit3DObject(lines: string[], object: SceneObject, customPrismDefs: str
         // Restore
         lines.push(`  glColor3f(${toF(object.color[0])}, ${toF(object.color[1])}, ${toF(object.color[2])});`);
       }
+      break;
+    }
+    case 'cylinder': {
+      const r = object.radius;
+      const h = object.height;
+      const segs = object.segments;
+      lines.push(`  // Cylinder (centered, using GLU)`);
+      lines.push(`  glPushMatrix();`);
+      lines.push(`  glRotatef(-90.0f, 1.0f, 0.0f, 0.0f); // Align Z with Y`);
+      lines.push(`  glTranslatef(0.0f, 0.0f, ${toF(-h / 2)}); // Center along Z`);
+      lines.push(`  GLUquadric* quad = gluNewQuadric();`);
+      lines.push(`  gluCylinder(quad, ${toF(r)}, ${toF(r)}, ${toF(h)}, ${segs}, 1);`);
+      lines.push(`  // Bottom Cap`);
+      lines.push(`  glPushMatrix();`);
+      lines.push(`  glRotatef(180.0f, 1.0f, 0.0f, 0.0f);`);
+      lines.push(`  gluDisk(quad, 0.0, ${toF(r)}, ${segs}, 1);`);
+      lines.push(`  glPopMatrix();`);
+      lines.push(`  // Top Cap`);
+      lines.push(`  glPushMatrix();`);
+      lines.push(`  glTranslatef(0.0f, 0.0f, ${toF(h)});`);
+      lines.push(`  gluDisk(quad, 0.0, ${toF(r)}, ${segs}, 1);`);
+      lines.push(`  glPopMatrix();`);
+      lines.push(`  gluDeleteQuadric(quad);`);
+      lines.push(`  glPopMatrix();`);
       break;
     }
     default:
@@ -3815,7 +3828,7 @@ export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
 
   // Init function
   lines.push('void init() {')
-  lines.push('  glClearColor(0.12f, 0.12f, 0.15f, 1.0f);')
+  lines.push('  glClearColor(0.53f, 0.81f, 0.92f, 1.0f);')
   if (is3D) {
     lines.push('  glEnable(GL_DEPTH_TEST);')
     lines.push('  glEnable(GL_LIGHTING);')
@@ -4067,9 +4080,7 @@ export const exportGlutProgram = (space: Space, objects: SceneObject[]) => {
 }
 
 
-
-
---- FILE: .\src\exportGlutExtended.ts ---
+--- FILE: src\exportGlutExtended.ts ---
 
 import { PrismMesh } from './types/prism.types';
 
@@ -4127,9 +4138,7 @@ export function exportPrismToGlut(mesh: PrismMesh, objectName: string): string {
 }
 
 
-
-
---- FILE: .\src\index.css ---
+--- FILE: src\index.css ---
 
 /* ========================================================================
    THREE GLUT — BuildEditor Dark Navy Design System
@@ -4229,9 +4238,7 @@ code, pre { font-family: var(--mono); }
 ::-webkit-scrollbar-thumb:hover { background: var(--be-surface-4); }
 
 
-
-
---- FILE: .\src\main.tsx ---
+--- FILE: src\main.tsx ---
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -4245,9 +4252,7 @@ createRoot(document.getElementById('root')!).render(
 )
 
 
-
-
---- FILE: .\src\scene.ts ---
+--- FILE: src\scene.ts ---
 
 export type Space = '2d' | '3d'
 import { PrismMesh } from './types/prism.types';
@@ -4265,6 +4270,7 @@ export type PrimitiveKind =
   | 'ground'
   | 'prism'
   | 'window'
+  | 'cylinder'
 
 export type TwoDDrawKind = 'line' | 'rect' | 'circle'
 
@@ -4356,7 +4362,7 @@ export const SPACE_LABELS: Record<Space, string> = {
 
 export const SPACE_KINDS = {
   '2d': ['line', 'rect', 'circle', 'polygon'] as const,
-  '3d': ['cube', 'sphere', 'cone', 'torus', 'teapot', 'ground', 'prism', 'window'] as const,
+  '3d': ['cube', 'sphere', 'cone', 'torus', 'teapot', 'ground', 'prism', 'window', 'cylinder'] as const,
 } satisfies Record<Space, readonly PrimitiveKind[]>
 
 export const KIND_LABELS: Record<PrimitiveKind, string> = {
@@ -4372,6 +4378,7 @@ export const KIND_LABELS: Record<PrimitiveKind, string> = {
   ground: 'Ground',
   prism: 'Prism',
   window: 'Window',
+  cylinder: 'Cylinder',
 }
 
 export const CUBE_FACE_KEYS: CubeFaceKey[] = [
@@ -4450,6 +4457,7 @@ const DEFAULT_COLORS: Record<PrimitiveKind, [number, number, number]> = {
   ground: [0.45, 0.42, 0.38],
   prism: [0.85, 0.55, 0.95],
   window: [0.72, 0.82, 0.98],
+  cylinder: [0.42, 0.84, 0.58],
 }
 
 const VALID_KINDS = new Set<PrimitiveKind>([
@@ -4465,6 +4473,7 @@ const VALID_KINDS = new Set<PrimitiveKind>([
   'ground',
   'prism',
   'window',
+  'cylinder',
 ])
 
 const STORAGE_KEY = 'three-glut-scene-document'
@@ -4555,15 +4564,15 @@ function baseSceneObject(kind: PrimitiveKind, index: number): SceneObject {
     space: is2D ? '2d' : '3d',
     position: is2D
       ? ([round(index * 1.5 - 1.5), round(index % 2 === 0 ? 0.4 : -0.2), 0] as [
-          number,
-          number,
-          number,
-        ])
+        number,
+        number,
+        number,
+      ])
       : ([round(index * 1.4 - 1.4), round(index % 2 === 0 ? 0.3 : -0.35), round(index * 0.35)] as [
-          number,
-          number,
-          number,
-        ]),
+        number,
+        number,
+        number,
+      ]),
     rotation: is2D
       ? ([0, 0, round(index * 10)] as [number, number, number])
       : ([0, 0, 0] as [number, number, number]),
@@ -4700,6 +4709,13 @@ export function createSceneObject(kind: PrimitiveKind, index: number): SceneObje
         // glass color stored in object.color
         color: [0.72, 0.82, 0.98] as [number, number, number],
       }
+    case 'cylinder':
+      return {
+        ...object,
+        radius: 0.8,
+        height: 2.0,
+        segments: 32,
+      }
   }
 }
 
@@ -4805,15 +4821,15 @@ function hydrateSceneObject(
       ? rawRecord.faceColors as Partial<Record<string, [number, number, number]>>
       : {},
     holes: Array.isArray(rawRecord.holes) ? rawRecord.holes as HoleData[] : [],
-    prismMesh: rawRecord.prismMesh && typeof rawRecord.prismMesh === 'object' 
-      ? structuredClone(rawRecord.prismMesh) as PrismMesh 
+    prismMesh: rawRecord.prismMesh && typeof rawRecord.prismMesh === 'object'
+      ? structuredClone(rawRecord.prismMesh) as PrismMesh
       : undefined,
     prismParams: rawRecord.prismParams && typeof rawRecord.prismParams === 'object'
       ? {
-          sides: isFiniteNumber((rawRecord.prismParams as any).sides) ? Math.max(3, Math.round((rawRecord.prismParams as any).sides)) : 3,
-          radius: isFiniteNumber((rawRecord.prismParams as any).radius) ? Math.max(0.1, (rawRecord.prismParams as any).radius) : 0.9,
-          height: isFiniteNumber((rawRecord.prismParams as any).height) ? Math.max(0.1, (rawRecord.prismParams as any).height) : 1.6,
-        }
+        sides: isFiniteNumber((rawRecord.prismParams as any).sides) ? Math.max(3, Math.round((rawRecord.prismParams as any).sides)) : 3,
+        radius: isFiniteNumber((rawRecord.prismParams as any).radius) ? Math.max(0.1, (rawRecord.prismParams as any).radius) : 0.9,
+        height: isFiniteNumber((rawRecord.prismParams as any).height) ? Math.max(0.1, (rawRecord.prismParams as any).height) : 1.6,
+      }
       : undefined,
     // Window-specific properties
     borderThickness: isFiniteNumber(rawRecord.borderThickness) ? Math.max(0.02, rawRecord.borderThickness) : base.borderThickness,
@@ -4981,6 +4997,8 @@ export function getObjectDimensions(object: SceneObject): [number, number, numbe
       return [round(object.radius * 2), round(object.radius * 2), 0]
     case 'window':
       return [round(object.width), round(object.height), 0]
+    case 'cylinder':
+      return [round(object.radius * 2), round(object.height), round(object.radius * 2)]
     default:
       return [0, 0, 0]
   }
@@ -5030,9 +5048,7 @@ export function getObjectVertices(object: SceneObject): [number, number, number]
 }
 
 
-
-
---- FILE: .\src\Viewport.tsx ---
+--- FILE: src\Viewport.tsx ---
 
 import {
   lazy,
@@ -6170,9 +6186,7 @@ function renderDraftShape(interaction: Extract<TwoDInteraction, { kind: 'draw' }
 }
 
 
-
-
---- FILE: .\src\Viewport3D.tsx ---
+--- FILE: src\Viewport3D.tsx ---
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Canvas } from '@react-three/fiber'
@@ -6222,6 +6236,9 @@ function getObjectRenderProps(object: SceneObject) {
     case 'prism':
       geometry = <cylinderGeometry args={[object.radius, object.radius, object.height, object.prismParams?.sides ?? 3, 1]} />
       break
+    case 'cylinder':
+      geometry = <cylinderGeometry args={[object.radius, object.radius, object.height, object.segments, 1]} />
+      break
   }
 
   return { geometry, scale }
@@ -6231,10 +6248,10 @@ function WindowObject({ object, selected }: { object: SceneObject; selected: boo
   const W = object.width
   const H = object.height
   const B = object.borderThickness ?? 0.12
-  const fc = object.frameColor ?? ([0.45, 0.32, 0.22] as [number,number,number])
+  const fc = object.frameColor ?? ([0.45, 0.32, 0.22] as [number, number, number])
   const gc = object.color
-  const frameHex = `rgb(${Math.round(fc[0]*255)},${Math.round(fc[1]*255)},${Math.round(fc[2]*255)})`
-  const glassHex = `rgb(${Math.round(gc[0]*255)},${Math.round(gc[1]*255)},${Math.round(gc[2]*255)})`
+  const frameHex = `rgb(${Math.round(fc[0] * 255)},${Math.round(fc[1] * 255)},${Math.round(fc[2] * 255)})`
+  const glassHex = `rgb(${Math.round(gc[0] * 255)},${Math.round(gc[1] * 255)},${Math.round(gc[2] * 255)})`
   const glassW = Math.max(0.01, W - B * 2)
   const glassH = Math.max(0.01, H - B * 2)
   const selEmissive = selected ? 0x332200 : 0x000000
@@ -6290,12 +6307,12 @@ function MeasureLabels({ object }: { object: SceneObject }) {
   const vertices = useMemo(
     () => getObjectVertices(object),
     [object.kind, object.size, object.radius, object.height, object.width,
-     object.depth, object.facePulls, object.edgePulls]
+    object.depth, object.facePulls, object.edgePulls]
   )
   const dimensions = useMemo(
     () => getObjectDimensions(object),
     [object.kind, object.size, object.radius, object.height, object.width,
-     object.depth, object.facePulls, object.edgePulls]
+    object.depth, object.facePulls, object.edgePulls]
   )
   const worldVertices = useMemo(() => {
     const matrix = new THREE.Matrix4()
@@ -6395,13 +6412,13 @@ function SelectableObject({
   const [isDragging, setIsDragging] = useState(false)
   const [prismMesh, setPrismMesh] = useState<PrismMesh | null>(object.prismMesh ?? null)
   const { geometry, scale } = useMemo(() => getObjectRenderProps(object), [
-    object.kind, 
-    object.size, 
-    object.radius, 
-    object.height, 
-    object.width, 
-    object.depth, 
-    object.facePulls, 
+    object.kind,
+    object.size,
+    object.radius,
+    object.height,
+    object.width,
+    object.depth,
+    object.facePulls,
     object.edgePulls,
     object.prismParams
   ])
@@ -6486,190 +6503,190 @@ function SelectableObject({
 
   const cubeFaceMeshes = object.kind === 'cube' && (editMode === 'face' || armedFavorite)
     ? CUBE_FACE_KEYS.map((faceKey) => {
-        const ext = computeCubeExtents(object)
-        const half = {
-          x: (ext.xNeg + ext.xPos) / 2,
-          y: (ext.yNeg + ext.yPos) / 2,
-          z: (ext.zNeg + ext.zPos) / 2,
-        }
-        const pos: [number, number, number] =
-          faceKey === 'xNeg' ? [-half.x, 0, 0]
+      const ext = computeCubeExtents(object)
+      const half = {
+        x: (ext.xNeg + ext.xPos) / 2,
+        y: (ext.yNeg + ext.yPos) / 2,
+        z: (ext.zNeg + ext.zPos) / 2,
+      }
+      const pos: [number, number, number] =
+        faceKey === 'xNeg' ? [-half.x, 0, 0]
           : faceKey === 'xPos' ? [half.x, 0, 0]
-          : faceKey === 'yNeg' ? [0, -half.y, 0]
-          : faceKey === 'yPos' ? [0, half.y, 0]
-          : faceKey === 'zNeg' ? [0, 0, -half.z]
-          : [0, 0, half.z]
-        const size: [number, number, number] =
-          faceKey.startsWith('x') ? [0.08, ext.yNeg + ext.yPos, ext.zNeg + ext.zPos]
+            : faceKey === 'yNeg' ? [0, -half.y, 0]
+              : faceKey === 'yPos' ? [0, half.y, 0]
+                : faceKey === 'zNeg' ? [0, 0, -half.z]
+                  : [0, 0, half.z]
+      const size: [number, number, number] =
+        faceKey.startsWith('x') ? [0.08, ext.yNeg + ext.yPos, ext.zNeg + ext.zPos]
           : faceKey.startsWith('y') ? [ext.xNeg + ext.xPos, 0.08, ext.zNeg + ext.zPos]
-          : [ext.xNeg + ext.xPos, ext.yNeg + ext.yPos, 0.08]
-        const isSelectedFace = selectedFace === faceKey
-        return (
-          <mesh 
-            key={faceKey} 
-            position={pos} 
-            scale={size} 
-            onClick={(e) => { 
-              e.stopPropagation(); 
-              if (armedFavorite && onFaceColorChange) {
-                onFaceColorChange(faceKey, hexToRgb(armedFavorite))
-              } else {
-                onSelectFace(faceKey);
-                onSelect(object.id); 
-              }
-            }}
-          >
-            <boxGeometry args={[1, 1, 1]} />
-            <meshBasicMaterial
-              color={isSelectedFace ? '#ffd39c' : '#7fe0ff'}
-              transparent
-              opacity={isSelectedFace ? 0.42 : 0.18}
-              depthWrite={false}
-            />
-          </mesh>
-        )
-      })
+            : [ext.xNeg + ext.xPos, ext.yNeg + ext.yPos, 0.08]
+      const isSelectedFace = selectedFace === faceKey
+      return (
+        <mesh
+          key={faceKey}
+          position={pos}
+          scale={size}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (armedFavorite && onFaceColorChange) {
+              onFaceColorChange(faceKey, hexToRgb(armedFavorite))
+            } else {
+              onSelectFace(faceKey);
+              onSelect(object.id);
+            }
+          }}
+        >
+          <boxGeometry args={[1, 1, 1]} />
+          <meshBasicMaterial
+            color={isSelectedFace ? '#ffd39c' : '#7fe0ff'}
+            transparent
+            opacity={isSelectedFace ? 0.42 : 0.18}
+            depthWrite={false}
+          />
+        </mesh>
+      )
+    })
     : null
 
   const prismFaceMeshes = object.kind === 'prism' && (editMode === 'face' || armedFavorite)
     ? (() => {
-        const sides = object.prismParams?.sides ?? object.sides ?? 3
-        const radius = object.prismParams?.radius ?? object.radius ?? 1
-        const height = object.prismParams?.height ?? object.height ?? 1
-        const halfH = height / 2
-        const angleStep = (2 * Math.PI) / sides
-        const meshes = []
+      const sides = object.prismParams?.sides ?? object.sides ?? 3
+      const radius = object.prismParams?.radius ?? object.radius ?? 1
+      const height = object.prismParams?.height ?? object.height ?? 1
+      const halfH = height / 2
+      const angleStep = (2 * Math.PI) / sides
+      const meshes = []
 
-        // Top cap
-        const topKey = 'top'
-        const isTopSelected = selectedFace === topKey
+      // Top cap
+      const topKey = 'top'
+      const isTopSelected = selectedFace === topKey
+      meshes.push(
+        <mesh
+          key={topKey}
+          position={[0, halfH + 0.01, 0]}
+          rotation={[Math.PI / 2, 0, 0]}
+          onClick={(e) => {
+            e.stopPropagation()
+            if (armedFavorite && onFaceColorChange) {
+              onFaceColorChange(topKey, hexToRgb(armedFavorite))
+            } else {
+              onSelectFace(topKey as any)
+              onSelect(object.id)
+            }
+          }}
+        >
+          <circleGeometry args={[radius, sides]} />
+          <meshBasicMaterial
+            color={isTopSelected ? '#ffd39c' : '#7fe0ff'}
+            transparent
+            opacity={isTopSelected ? 0.42 : 0.18}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )
+
+      // Bottom cap
+      const bottomKey = 'bottom'
+      const isBottomSelected = selectedFace === bottomKey
+      meshes.push(
+        <mesh
+          key={bottomKey}
+          position={[0, -halfH - 0.01, 0]}
+          rotation={[Math.PI / 2, 0, 0]}
+          onClick={(e) => {
+            e.stopPropagation()
+            if (armedFavorite && onFaceColorChange) {
+              onFaceColorChange(bottomKey, hexToRgb(armedFavorite))
+            } else {
+              onSelectFace(bottomKey as any)
+              onSelect(object.id)
+            }
+          }}
+        >
+          <circleGeometry args={[radius, sides]} />
+          <meshBasicMaterial
+            color={isBottomSelected ? '#ffd39c' : '#7fe0ff'}
+            transparent
+            opacity={isBottomSelected ? 0.42 : 0.18}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )
+
+      // Side faces
+      for (let i = 0; i < sides; i++) {
+        const faceKey = `side_${i}`
+        const isSelected = selectedFace === faceKey
+        const angle = (i + 0.5) * angleStep
+        const nx = Math.cos(angle)
+        const nz = Math.sin(angle)
+        const cx = nx * radius
+        const cz = nz * radius
+        const faceW = 2 * radius * Math.sin(Math.PI / sides)
+
         meshes.push(
           <mesh
-            key={topKey}
-            position={[0, halfH + 0.01, 0]}
-            rotation={[Math.PI / 2, 0, 0]}
+            key={faceKey}
+            position={[cx, 0, cz]}
+            rotation={[0, -angle, 0]}
             onClick={(e) => {
               e.stopPropagation()
               if (armedFavorite && onFaceColorChange) {
-                onFaceColorChange(topKey, hexToRgb(armedFavorite))
+                onFaceColorChange(faceKey, hexToRgb(armedFavorite))
               } else {
-                onSelectFace(topKey as any)
+                onSelectFace(faceKey as any)
                 onSelect(object.id)
               }
             }}
           >
-            <circleGeometry args={[radius, sides]} />
+            <planeGeometry args={[faceW, height]} />
             <meshBasicMaterial
-              color={isTopSelected ? '#ffd39c' : '#7fe0ff'}
+              color={isSelected ? '#ffd39c' : '#7fe0ff'}
               transparent
-              opacity={isTopSelected ? 0.42 : 0.18}
+              opacity={isSelected ? 0.42 : 0.18}
               depthWrite={false}
               side={THREE.DoubleSide}
             />
           </mesh>
         )
+      }
 
-        // Bottom cap
-        const bottomKey = 'bottom'
-        const isBottomSelected = selectedFace === bottomKey
-        meshes.push(
-          <mesh
-            key={bottomKey}
-            position={[0, -halfH - 0.01, 0]}
-            rotation={[Math.PI / 2, 0, 0]}
-            onClick={(e) => {
-              e.stopPropagation()
-              if (armedFavorite && onFaceColorChange) {
-                onFaceColorChange(bottomKey, hexToRgb(armedFavorite))
-              } else {
-                onSelectFace(bottomKey as any)
-                onSelect(object.id)
-              }
-            }}
-          >
-            <circleGeometry args={[radius, sides]} />
-            <meshBasicMaterial
-              color={isBottomSelected ? '#ffd39c' : '#7fe0ff'}
-              transparent
-              opacity={isBottomSelected ? 0.42 : 0.18}
-              depthWrite={false}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-        )
-
-        // Side faces
-        for (let i = 0; i < sides; i++) {
-          const faceKey = `side_${i}`
-          const isSelected = selectedFace === faceKey
-          const angle = (i + 0.5) * angleStep
-          const nx = Math.cos(angle)
-          const nz = Math.sin(angle)
-          const cx = nx * radius
-          const cz = nz * radius
-          const faceW = 2 * radius * Math.sin(Math.PI / sides)
-
-          meshes.push(
-            <mesh
-              key={faceKey}
-              position={[cx, 0, cz]}
-              rotation={[0, -angle, 0]}
-              onClick={(e) => {
-                e.stopPropagation()
-                if (armedFavorite && onFaceColorChange) {
-                  onFaceColorChange(faceKey, hexToRgb(armedFavorite))
-                } else {
-                  onSelectFace(faceKey as any)
-                  onSelect(object.id)
-                }
-              }}
-            >
-              <planeGeometry args={[faceW, height]} />
-              <meshBasicMaterial
-                color={isSelected ? '#ffd39c' : '#7fe0ff'}
-                transparent
-                opacity={isSelected ? 0.42 : 0.18}
-                depthWrite={false}
-                side={THREE.DoubleSide}
-              />
-            </mesh>
-          )
-        }
-
-        return <>{meshes}</>
-      })()
+      return <>{meshes}</>
+    })()
     : null
 
   const faceMeshes = cubeFaceMeshes ?? prismFaceMeshes
 
   const edgeLines = object.kind === 'cube' && editMode === 'edge'
     ? CUBE_EDGE_KEYS.map((edgeKey) => {
-        const ext = computeCubeExtents(object)
-        const x = edgeKey.includes('xPos') ? ext.xPos : edgeKey.includes('xNeg') ? -ext.xNeg : 0
-        const y = edgeKey.includes('yPos') ? ext.yPos : edgeKey.includes('yNeg') ? -ext.yNeg : 0
-        const z = edgeKey.includes('zPos') ? ext.zPos : edgeKey.includes('zNeg') ? -ext.zNeg : 0
-        const points: [number, number, number][] = []
-        if (edgeKey.includes('xPos') || edgeKey.includes('xNeg')) {
-          points.push([x, edgeKey.includes('yPos') ? ext.yPos : -ext.yNeg, edgeKey.includes('zPos') ? ext.zPos : -ext.zNeg])
-          points.push([x, edgeKey.includes('yPos') ? ext.yPos : -ext.yNeg, edgeKey.includes('zPos') ? -ext.zNeg : ext.zPos])
-        } else if (edgeKey.includes('yPos') || edgeKey.includes('yNeg')) {
-          points.push([edgeKey.includes('xPos') ? ext.xPos : -ext.xNeg, y, edgeKey.includes('zPos') ? ext.zPos : -ext.zNeg])
-          points.push([edgeKey.includes('xPos') ? -ext.xNeg : ext.xPos, y, edgeKey.includes('zPos') ? ext.zPos : -ext.zNeg])
-        } else {
-          points.push([edgeKey.includes('xPos') ? ext.xPos : -ext.xNeg, edgeKey.includes('yPos') ? ext.yPos : -ext.yNeg, z])
-          points.push([edgeKey.includes('xPos') ? -ext.xNeg : ext.xPos, edgeKey.includes('yPos') ? ext.yPos : -ext.yNeg, z])
-        }
-        const isSelected = selectedEdge === edgeKey
-        return (
-          <Line
-            key={edgeKey}
-            points={points}
-            color={isSelected ? '#ffd39c' : '#ffffff'}
-            lineWidth={1}
-            onClick={(e) => { e.stopPropagation(); onSelectEdge(edgeKey); onSelect(object.id); }}
-          />
-        )
-      })
+      const ext = computeCubeExtents(object)
+      const x = edgeKey.includes('xPos') ? ext.xPos : edgeKey.includes('xNeg') ? -ext.xNeg : 0
+      const y = edgeKey.includes('yPos') ? ext.yPos : edgeKey.includes('yNeg') ? -ext.yNeg : 0
+      const z = edgeKey.includes('zPos') ? ext.zPos : edgeKey.includes('zNeg') ? -ext.zNeg : 0
+      const points: [number, number, number][] = []
+      if (edgeKey.includes('xPos') || edgeKey.includes('xNeg')) {
+        points.push([x, edgeKey.includes('yPos') ? ext.yPos : -ext.yNeg, edgeKey.includes('zPos') ? ext.zPos : -ext.zNeg])
+        points.push([x, edgeKey.includes('yPos') ? ext.yPos : -ext.yNeg, edgeKey.includes('zPos') ? -ext.zNeg : ext.zPos])
+      } else if (edgeKey.includes('yPos') || edgeKey.includes('yNeg')) {
+        points.push([edgeKey.includes('xPos') ? ext.xPos : -ext.xNeg, y, edgeKey.includes('zPos') ? ext.zPos : -ext.zNeg])
+        points.push([edgeKey.includes('xPos') ? -ext.xNeg : ext.xPos, y, edgeKey.includes('zPos') ? ext.zPos : -ext.zNeg])
+      } else {
+        points.push([edgeKey.includes('xPos') ? ext.xPos : -ext.xNeg, edgeKey.includes('yPos') ? ext.yPos : -ext.yNeg, z])
+        points.push([edgeKey.includes('xPos') ? -ext.xNeg : ext.xPos, edgeKey.includes('yPos') ? ext.yPos : -ext.yNeg, z])
+      }
+      const isSelected = selectedEdge === edgeKey
+      return (
+        <Line
+          key={edgeKey}
+          points={points}
+          color={isSelected ? '#ffd39c' : '#ffffff'}
+          lineWidth={1}
+          onClick={(e) => { e.stopPropagation(); onSelectEdge(edgeKey); onSelect(object.id); }}
+        />
+      )
+    })
     : null
 
   const content = (
@@ -6684,10 +6701,10 @@ function SelectableObject({
           onShiftSelect(object.id)
           return
         }
-        
+
         // If armed, do nothing here — faceMeshes handle it
         if (armedFavorite) return
-        
+
         // Face selection via Raycasting (faceIndex)
         if (object.kind === 'cube' && editMode === 'face' && e.faceIndex !== undefined && e.faceIndex !== null) {
           const faceGroup = Math.floor(e.faceIndex / 2)
@@ -6775,7 +6792,7 @@ function CameraHandler({ enabled }: { enabled: boolean }) {
       const step = 0.5
       const forward = new THREE.Vector3()
       camera.getWorldDirection(forward)
-      
+
       // Calculate horizontal forward (ignore Y for W/S movement to feel like a walk)
       const horizontalForward = forward.clone()
       horizontalForward.y = 0
@@ -6887,9 +6904,10 @@ export default function Viewport3D({
   return (
     <div style={{ width: '100%', height: '100%', background: '#111' }}>
       <Canvas camera={{ position: [5, 5, 5], fov: 50 }}>
+        <color attach="background" args={['#87CEEB']} />
         <ambientLight intensity={0.4} />
         <directionalLight position={[5, 10, 5]} intensity={0.8} />
-        
+
         <CameraHandler enabled={isOrbitEnabled} />
 
         <group position={[0, -3.5, 0]}>
@@ -6922,16 +6940,12 @@ export default function Viewport3D({
 }
 
 
-
-
---- FILE: .\src\vite-env.d.ts ---
+--- FILE: src\vite-env.d.ts ---
 
 /// <reference types="vite/client" />
 
 
-
-
---- FILE: .\src\commands\prismCommands.ts ---
+--- FILE: src\commands\prismCommands.ts ---
 
 import { PrismMesh, Vertex } from '../types/prism.types';
 
@@ -7022,13 +7036,16 @@ export function deleteFace(mesh: PrismMesh, faceId: string): PrismMesh {
 }
 
 function computeNormal(verts: Vertex[]): Vertex {
-  if (verts.length < 3) return { x: 0, y: 1, z: 0 };
-  const a = verts[0], b = verts[1], c = verts[2];
-  const ab = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
-  const ac = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
-  let nx = ab.y * ac.z - ab.z * ac.y;
-  let ny = ab.z * ac.x - ab.x * ac.z;
-  let nz = ab.x * ac.y - ab.y * ac.x;
+  // Use Newell's method: accumulate cross products across all edges.
+  let nx = 0, ny = 0, nz = 0;
+  const n = verts.length;
+  for (let i = 0; i < n; i++) {
+    const cur = verts[i];
+    const nxt = verts[(i + 1) % n];
+    nx += (cur.y - nxt.y) * (cur.z + nxt.z);
+    ny += (cur.z - nxt.z) * (cur.x + nxt.x);
+    nz += (cur.x - nxt.x) * (cur.y + nxt.y);
+  }
   const len = Math.hypot(nx, ny, nz);
   if (len !== 0) { nx /= len; ny /= len; nz /= len; }
   return { x: nx, y: ny, z: nz };
@@ -7041,9 +7058,7 @@ function computeCenter(verts: Vertex[]): Vertex {
 }
 
 
-
-
---- FILE: .\src\components\ContextMenu.tsx ---
+--- FILE: src\components\ContextMenu.tsx ---
 
 import { useEffect, useRef } from 'react'
 
@@ -7146,9 +7161,7 @@ export function ContextMenu({
 }
 
 
-
-
---- FILE: .\src\components\PrismEditGizmo.tsx ---
+--- FILE: src\components\PrismEditGizmo.tsx ---
 
 import { useRef, useState, useEffect } from 'react';
 import { Html, Line } from '@react-three/drei';
@@ -7277,9 +7290,7 @@ export function PrismEditGizmo({ mesh, onUpdateMesh }: Props) {
 }
 
 
-
-
---- FILE: .\src\geometry\prismGeometry.ts ---
+--- FILE: src\geometry\prismGeometry.ts ---
 
 import { Vertex, Face, Edge, PrismMesh } from '../types/prism.types';
 
@@ -7401,9 +7412,7 @@ function computeCenter(verts: Vertex[]): Vertex {
   return { x: sum.x / count, y: sum.y / count, z: sum.z / count };
 }
 
-
-
---- FILE: .\src\store\prismStore.ts ---
+--- FILE: src\store\prismStore.ts ---
 
 import { create } from 'zustand';
 import { PrismMesh } from '../types/prism.types';
@@ -7456,9 +7465,7 @@ export const usePrismStore = create<PrismState>((set, get) => ({
   },
 }));
 
-
-
---- FILE: .\src\types\prism.types.ts ---
+--- FILE: src\types\prism.types.ts ---
 
 export interface Vertex { x: number; y: number; z: number; }
 export interface Face {
@@ -7481,5 +7488,3 @@ export interface PrismMesh {
   height: number;
   radius: number;
 }
-
-

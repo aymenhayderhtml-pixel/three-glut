@@ -1,4 +1,41 @@
+# Project Updates - May 5, 2026
+
+Implemented several major features and architectural improvements:
+
+1. **Multi-Selection System (src/App.tsx & src/Viewport3D.tsx):**
+   - Integrated `multiSelectedIds` state to support selecting multiple objects (Shift+Click).
+   - Enabled bulk transformations (Translate/Rotate/Scale) for selected groups.
+   - Updated property inspector to show "Multiple Selected" state and allow batch property updates.
+
+2. **Voxel Terrain System (src/components/VoxelTerrain.tsx):**
+   - Implemented a high-performance voxel grid for real-time terrain painting.
+   - Added brush settings for size, height, and material type.
+   - Integrated voxel data into the main scene serialization and GLUT export.
+
+3. **Advanced Material Editor (src/App.tsx):**
+   - Expanded the property inspector with physically-based rendering (PBR) controls.
+   - Added sliders for Roughness, Metalness, and Emissive strength.
+   - Implemented a "Favorite Colors" palette for quick access to frequently used materials.
+
+4. **Prism Sub-Editing (src/App.tsx & src/geometry/PrismGeometry.ts):**
+   - Enabled Face and Edge sub-selection modes for Prism primitives.
+   - Fixed face selection handle alignment for rotated prisms using world-to-local coordinate mapping.
+   - Implemented per-face color assignment (Face Painting) for prisms.
+
+5. **Lighting & Geometry Fixes:**
+   - Corrected normal calculations for custom prism geometries to ensure consistent shading.
+   - Optimized mesh generation for prisms with large numbers of vertices.
+
+6. **Camera & Navigation (src/Viewport3D.tsx):**
+   - Refined WASD/Arrow key navigation to maintain strict world-axis alignment.
+   - Added smooth damping to camera transitions.
+
+7. **Codebase Maintenance:**
+   - Updated `codebase_dump.txt` and `codebase_dump_utf8.txt` with the latest source state.
+   - Cleaned up redundant command handlers and stabilized state management hooks.
+
 # Project Updates - April 27, 2026
+
 
 Implemented the following 10 fixes and improvements to the Three GLUT project:
 
